@@ -10,7 +10,7 @@
 
 # WAITLESS — La Salle du Temps
 
-## 🌐 Endpoints de l'API
+##  Endpoints de l'API
 
 | Ressource | Terminaisons principales | Accès |
 | :--- | :--- | :--- |
@@ -24,7 +24,7 @@
 
 ---
 
-## 🗄️ Modèle de Données
+##  Modèle de Données
 
 | Entité | Rôle | Attributs clés |
 | :--- | :--- | :--- |
@@ -43,7 +43,7 @@
 
 ---
 
-## ⚙️ Fonctionnalités et Règles Métier
+##  Fonctionnalités et Règles Métier
 
 ### Périmètre fonctionnel livré (MVP)
 
@@ -88,7 +88,7 @@
 
 ---
 
-## 🗓️ Planning et Rétroplanning
+##  Planning et Rétroplanning
 
 | Séance / Jalon | Objectif | Livrables |
 | :---: | :--- | :--- |
