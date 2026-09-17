@@ -64,7 +64,7 @@ export function creerApplication({ dossierStatique = 'public' } = {}) {
         const body = await lireCorps(req);
         const ctx = { req, res, params, query: url.searchParams, body, url };
         const resultat = await r.handler(ctx);
-        if (res.writableEnded) return;          // SSE ou reponse deja ecrite
+        if (res.writableEnded || res.headersSent) return;  // SSE ou reponse deja ecrite
         return json(res, 200, resultat ?? { ok: true });
       } catch (e) {
         if (e instanceof ErreurMetier) return json(res, 400, { erreur: e.message, code: e.code });
@@ -86,6 +86,7 @@ export function creerApplication({ dossierStatique = 'public' } = {}) {
 
 /** Reponse JSON. */
 export function json(res, statut, corps) {
+  if (res.writableEnded || res.headersSent) return;
   const texte = JSON.stringify(corps);
   res.writeHead(statut, {
     'Content-Type': 'application/json; charset=utf-8',
