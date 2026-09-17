@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Waitless — La Salle du Temps</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⏳</text></svg>">
+  <!--
+    Bibliotheque de rendu du QR code. C'est la SEULE ressource externe du
+    projet, et elle est facultative : si elle ne se charge pas (poste hors
+    ligne), l'application affiche le code en clair et l'agent le saisit a la
+    main. Ce mode degrade est celui prevu au chapitre 8 du cahier des charges.
+  -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <!-- Bandeau d'etat : horloge d'exploitation, etat de la file, role courant. -->
+  <header id="bandeau"></header>
+
+  <!-- L'application est une page unique : ce conteneur recoit la vue du role. -->
+  <main id="app">
+    <p class="chargement">Chargement…</p>
+  </main>
+
+  <footer id="pied"></footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

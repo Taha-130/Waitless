@@ -1,0 +1,175 @@
+/* ==========================================================================
+   WAITLESS — feuille de style unique
+   Direction : la Salle du Temps est un vide blanc sous un ciel ambre. D'ou un
+   fond os, une encre indigo, et l'ambre reserve a une seule chose a la fois :
+   ce qui demande une action du visiteur.
+   ========================================================================== */
+
+:root {
+  --vide: #f7f5f0;
+  --surface: #ffffff;
+  --encre: #16182b;
+  --encre-douce: #5a5e78;
+  --trait: #e3ded3;
+  --ki: #e8901b;          /* ambre : action, convocation */
+  --jade: #1e9e82;        /* validation */
+  --braise: #c22e4c;      /* refus, danger */
+  --rayon: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--vide);
+  color: var(--encre);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { max-width: 560px; margin: 0 auto; padding: 16px 16px 64px; }
+main.large { max-width: 1040px; }
+
+h1 { font-size: 1.45rem; letter-spacing: -0.015em; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 22px 0 10px; letter-spacing: -0.01em; }
+h3 { font-size: 0.95rem; margin: 0 0 6px; }
+p  { margin: 0 0 10px; }
+small, .discret { color: var(--encre-douce); font-size: 0.85rem; }
+
+/* --- Bandeau ------------------------------------------------------------ */
+
+#bandeau {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--encre); color: #f2efe8;
+  padding: 8px 16px;
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  font-size: 0.82rem;
+}
+#bandeau .horloge { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: 0.02em; }
+#bandeau .pousse { margin-left: auto; }
+#bandeau button { background: transparent; color: #f2efe8; border: 1px solid #4a4d6b; padding: 3px 10px; }
+#bandeau .pastille { padding: 2px 8px; border-radius: 999px; background: #2a2d47; }
+#bandeau .pastille.alerte { background: var(--braise); }
+#bandeau .pastille.pause  { background: var(--ki); color: #2a1a00; }
+
+/* --- Blocs -------------------------------------------------------------- */
+
+.bloc {
+  background: var(--surface);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.bloc.accent { border-left: 4px solid var(--ki); }
+.bloc.danger { border-left: 4px solid var(--braise); }
+
+/* Le chiffre est le heros de l'ecran visiteur : position, minutes, compte a rebours. */
+.chiffre {
+  font-size: clamp(3.4rem, 18vw, 5.6rem);
+  line-height: 0.9;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0;
+}
+.chiffre.urgence { color: var(--braise); }
+.chiffre .unite { font-size: 0.9rem; font-weight: 500; letter-spacing: 0; color: var(--encre-douce); }
+
+.fourchette { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* --- Formulaires et boutons --------------------------------------------- */
+
+button, .bouton {
+  font: inherit; font-weight: 600;
+  background: var(--encre); color: #fff;
+  border: 0; border-radius: 8px;
+  padding: 11px 16px;
+  cursor: pointer;
+}
+button:hover { opacity: 0.9; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--ki); outline-offset: 2px; }
+button.principal { background: var(--ki); color: #24160a; }
+button.sobre { background: transparent; color: var(--encre); border: 1px solid var(--trait); }
+button.danger { background: var(--braise); }
+button.large { width: 100%; }
+
+input, select, textarea {
+  font: inherit; width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--trait); border-radius: 8px;
+  background: var(--surface); color: var(--encre);
+  margin-bottom: 10px;
+}
+label { display: block; font-size: 0.85rem; color: var(--encre-douce); margin-bottom: 3px; }
+.case { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; font-size: 0.92rem; }
+.case input { width: auto; margin: 3px 0 0; flex: 0 0 auto; }
+.ligne { display: flex; gap: 8px; flex-wrap: wrap; }
+.ligne > * { flex: 1 1 auto; }
+
+/* --- Onglets ------------------------------------------------------------ */
+
+.onglets { display: flex; gap: 4px; border-bottom: 1px solid var(--trait); margin-bottom: 14px; overflow-x: auto; }
+.onglets button {
+  background: transparent; color: var(--encre-douce);
+  border: 0; border-bottom: 2px solid transparent;
+  border-radius: 0; padding: 9px 12px; font-size: 0.9rem; white-space: nowrap;
+}
+.onglets button[aria-selected="true"] { color: var(--encre); border-bottom-color: var(--ki); }
+
+/* --- Listes, tableaux, indicateurs -------------------------------------- */
+
+table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+th { text-align: left; font-weight: 600; color: var(--encre-douce); padding: 6px 8px; border-bottom: 1px solid var(--trait); }
+td { padding: 7px 8px; border-bottom: 1px solid var(--trait); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+.defilant { max-height: 420px; overflow: auto; }
+
+.indicateurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.indicateur { background: var(--surface); border: 1px solid var(--trait); border-radius: var(--rayon); padding: 12px 14px; }
+.indicateur .valeur { font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.indicateur .titre { font-size: 0.78rem; color: var(--encre-douce); }
+
+.jauge { height: 8px; background: var(--trait); border-radius: 999px; overflow: hidden; margin-top: 8px; }
+.jauge > span { display: block; height: 100%; background: var(--ki); }
+.jauge.pleine > span { background: var(--braise); }
+
+.etiquette { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--trait); }
+.etiquette.SUPER_SAIYAN { background: #fff2dc; border-color: #f0c680; color: #8a4c00; }
+.etiquette.SAIYAN { background: #e8f4ff; border-color: #a9cdf0; color: #14497a; }
+.etiquette.HUMAIN { background: #f0f0f4; color: #43465e; }
+.etiquette.CONVOQUE { background: var(--ki); color: #24160a; border-color: transparent; }
+
+/* --- Verdict de scan ---------------------------------------------------- */
+
+.verdict { border-radius: var(--rayon); padding: 20px; color: #fff; margin-bottom: 12px; }
+.verdict.ACCEPTE { background: var(--jade); }
+.verdict.REFUSE { background: var(--braise); }
+.verdict .mot { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; }
+
+/* --- Convocation : seule prise de parole plein ecran de l'application ---- */
+
+.convocation {
+  position: fixed; inset: 0; z-index: 20;
+  background: linear-gradient(170deg, #ffd79a 0%, var(--vide) 42%);
+  overflow: auto; padding: 24px 16px 40px;
+}
+.convocation .contenu { max-width: 420px; margin: 0 auto; text-align: center; }
+#qr { display: flex; justify-content: center; padding: 14px; background: #fff; border-radius: var(--rayon); }
+#qr img, #qr canvas { display: block; }
+.code-secours { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; word-break: break-all; color: var(--encre-douce); }
+
+/* --- Divers -------------------------------------------------------------- */
+
+.message { border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.9rem; }
+.message.erreur { background: #fdeaee; color: #8a1c33; }
+.message.succes { background: #e6f5f0; color: #0f5f4d; }
+.message.info { background: #fff5e6; color: #7a4a06; }
+.chargement { color: var(--encre-douce); padding: 40px 0; text-align: center; }
+#pied { text-align: center; padding: 0 16px 28px; }
+.vide-liste { color: var(--encre-douce); padding: 18px 0; text-align: center; font-size: 0.9rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
