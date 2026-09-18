@@ -12,6 +12,8 @@
     "reset": "node seed.js --reset",
     "test": "node --test test/*.test.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "html5-qrcode": "^2.3.8"
+  },
   "license": "MIT"
 }
