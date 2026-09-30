@@ -100,18 +100,27 @@ async function rafraichir() {
   }
   rendre();
 }
-
+function saisieOuConsentementEnCours() {
+  return (
+    ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+    || !!document.getElementById('cgu')
+    || !!document.getElementById('decharge')
+  );
+}
 /** Flux temps reel : le serveur pousse l'etat de la file a chaque battement. */
 function ouvrirFlux() {
   const source = new EventSource(`/api/queues/${FILE}/stream`);
+
   source.onmessage = (ev) => {
     S.vue = JSON.parse(ev.data);
-    // On evite de re-dessiner pendant une saisie : cela viderait le champ.
-    const saisieEnCours = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+
+    const saisieEnCours = saisieOuConsentementEnCours();
+
     if (S.session) rafraichirDiscret(saisieEnCours);
     else if (!saisieEnCours) rendre();
     else rendreBandeau();
   };
+
   source.onerror = () => rendreBandeau();
 }
 

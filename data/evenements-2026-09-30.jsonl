@@ -1,0 +1,336 @@
+{"seq":1,"type":"VISITEUR_ENREGISTRE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_8d953a8d","email":"lea0@exemple.fr","prenom":"Lea","initiale":"L","statut":"SUPER_SAIYAN","refBillet":"BIL-1000","anneeNaissance":null}
+{"seq":2,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_8d953a8d","typeConsentement":"CGU","version":"1.0"}
+{"seq":3,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_8d953a8d","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":4,"type":"APTITUDE_DECLAREE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_8d953a8d","apte":true}
+{"seq":5,"type":"TICKET_CREE","ts":1790755200002,"jour":"2026-09-30","ticketId":"tk_0a87a838","visiteurId":"vis_8d953a8d","statut":"SUPER_SAIYAN","rang":1,"estimationMin":0}
+{"seq":6,"type":"VISITEUR_ENREGISTRE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_acd076da","email":"karim1@exemple.fr","prenom":"Karim","initiale":"K","statut":"SAIYAN","refBillet":"BIL-1001","anneeNaissance":null}
+{"seq":7,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_acd076da","typeConsentement":"CGU","version":"1.0"}
+{"seq":8,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_acd076da","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":9,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_acd076da","apte":true}
+{"seq":10,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_f7f7a63f","visiteurId":"vis_acd076da","statut":"SAIYAN","rang":2,"estimationMin":1}
+{"seq":11,"type":"VISITEUR_ENREGISTRE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_66464477","email":"sofia2@exemple.fr","prenom":"Sofia","initiale":"S","statut":"SAIYAN","refBillet":"BIL-1002","anneeNaissance":null}
+{"seq":12,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_66464477","typeConsentement":"CGU","version":"1.0"}
+{"seq":13,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_66464477","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":14,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_66464477","apte":true}
+{"seq":15,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_33ca47b2","visiteurId":"vis_66464477","statut":"SAIYAN","rang":3,"estimationMin":2}
+{"seq":16,"type":"VISITEUR_ENREGISTRE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_8e6f0cf8","email":"noah3@exemple.fr","prenom":"Noah","initiale":"N","statut":"SAIYAN","refBillet":"BIL-1003","anneeNaissance":null}
+{"seq":17,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_8e6f0cf8","typeConsentement":"CGU","version":"1.0"}
+{"seq":18,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_8e6f0cf8","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":19,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_8e6f0cf8","apte":true}
+{"seq":20,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_801dc778","visiteurId":"vis_8e6f0cf8","statut":"SAIYAN","rang":4,"estimationMin":3}
+{"seq":21,"type":"VISITEUR_ENREGISTRE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_e1912fce","email":"ines4@exemple.fr","prenom":"Ines","initiale":"I","statut":"HUMAIN","refBillet":"BIL-1004","anneeNaissance":null}
+{"seq":22,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_e1912fce","typeConsentement":"CGU","version":"1.0"}
+{"seq":23,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_e1912fce","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":24,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_e1912fce","apte":true}
+{"seq":25,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_9f10b72b","visiteurId":"vis_e1912fce","statut":"HUMAIN","rang":5,"estimationMin":4}
+{"seq":26,"type":"VISITEUR_ENREGISTRE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_2e731083","email":"malo5@exemple.fr","prenom":"Malo","initiale":"M","statut":"HUMAIN","refBillet":"BIL-1005","anneeNaissance":null}
+{"seq":27,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_2e731083","typeConsentement":"CGU","version":"1.0"}
+{"seq":28,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_2e731083","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":29,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_2e731083","apte":true}
+{"seq":30,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_ba37145b","visiteurId":"vis_2e731083","statut":"HUMAIN","rang":6,"estimationMin":5}
+{"seq":31,"type":"VISITEUR_ENREGISTRE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_77197d69","email":"jade6@exemple.fr","prenom":"Jade","initiale":"J","statut":"HUMAIN","refBillet":"BIL-1006","anneeNaissance":null}
+{"seq":32,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_77197d69","typeConsentement":"CGU","version":"1.0"}
+{"seq":33,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_77197d69","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":34,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_77197d69","apte":true}
+{"seq":35,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_1668a71f","visiteurId":"vis_77197d69","statut":"HUMAIN","rang":7,"estimationMin":6}
+{"seq":36,"type":"VISITEUR_ENREGISTRE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_b055763a","email":"elias7@exemple.fr","prenom":"Elias","initiale":"E","statut":"HUMAIN","refBillet":"BIL-1007","anneeNaissance":null}
+{"seq":37,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_b055763a","typeConsentement":"CGU","version":"1.0"}
+{"seq":38,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_b055763a","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":39,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_b055763a","apte":true}
+{"seq":40,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_8e28bb1b","visiteurId":"vis_b055763a","statut":"HUMAIN","rang":8,"estimationMin":7}
+{"seq":41,"type":"VISITEUR_ENREGISTRE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_66d837b8","email":"rose8@exemple.fr","prenom":"Rose","initiale":"R","statut":"HUMAIN","refBillet":"BIL-1008","anneeNaissance":null}
+{"seq":42,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_66d837b8","typeConsentement":"CGU","version":"1.0"}
+{"seq":43,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_66d837b8","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":44,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_66d837b8","apte":true}
+{"seq":45,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_8f57d014","visiteurId":"vis_66d837b8","statut":"HUMAIN","rang":9,"estimationMin":9}
+{"seq":46,"type":"VISITEUR_ENREGISTRE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_35d65873","email":"adam9@exemple.fr","prenom":"Adam","initiale":"A","statut":"HUMAIN","refBillet":"BIL-1009","anneeNaissance":null}
+{"seq":47,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_35d65873","typeConsentement":"CGU","version":"1.0"}
+{"seq":48,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_35d65873","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":49,"type":"APTITUDE_DECLAREE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_35d65873","apte":true}
+{"seq":50,"type":"TICKET_CREE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_ebb811cf","visiteurId":"vis_35d65873","statut":"HUMAIN","rang":10,"estimationMin":10}
+{"seq":51,"type":"VISITEUR_ENREGISTRE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_e79e8ae9","email":"chloe10@exemple.fr","prenom":"Chloe","initiale":"C","statut":"HUMAIN","refBillet":"BIL-1010","anneeNaissance":null}
+{"seq":52,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_e79e8ae9","typeConsentement":"CGU","version":"1.0"}
+{"seq":53,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_e79e8ae9","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":54,"type":"APTITUDE_DECLAREE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_e79e8ae9","apte":true}
+{"seq":55,"type":"TICKET_CREE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_42808f15","visiteurId":"vis_e79e8ae9","statut":"HUMAIN","rang":11,"estimationMin":11}
+{"seq":56,"type":"VISITEUR_ENREGISTRE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_9c6f2af7","email":"nino11@exemple.fr","prenom":"Nino","initiale":"N","statut":"HUMAIN","refBillet":"BIL-1011","anneeNaissance":null}
+{"seq":57,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_9c6f2af7","typeConsentement":"CGU","version":"1.0"}
+{"seq":58,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_9c6f2af7","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":59,"type":"APTITUDE_DECLAREE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_9c6f2af7","apte":true}
+{"seq":60,"type":"TICKET_CREE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_c0055f6b","visiteurId":"vis_9c6f2af7","statut":"HUMAIN","rang":12,"estimationMin":12}
+{"seq":61,"type":"VISITEUR_ENREGISTRE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_1390e033","email":"anna12@exemple.fr","prenom":"Anna","initiale":"A","statut":"HUMAIN","refBillet":"BIL-1012","anneeNaissance":null}
+{"seq":62,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_1390e033","typeConsentement":"CGU","version":"1.0"}
+{"seq":63,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_1390e033","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":64,"type":"APTITUDE_DECLAREE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_1390e033","apte":true}
+{"seq":65,"type":"TICKET_CREE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_93c56a58","visiteurId":"vis_1390e033","statut":"HUMAIN","rang":13,"estimationMin":13}
+{"seq":66,"type":"VISITEUR_ENREGISTRE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_cd3feaec","email":"youssef13@exemple.fr","prenom":"Youssef","initiale":"Y","statut":"HUMAIN","refBillet":"BIL-1013","anneeNaissance":null}
+{"seq":67,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_cd3feaec","typeConsentement":"CGU","version":"1.0"}
+{"seq":68,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_cd3feaec","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":69,"type":"APTITUDE_DECLAREE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_cd3feaec","apte":true}
+{"seq":70,"type":"TICKET_CREE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_3b778f7f","visiteurId":"vis_cd3feaec","statut":"HUMAIN","rang":14,"estimationMin":14}
+{"seq":71,"type":"VISITEUR_ENREGISTRE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_2136b981","email":"mila14@exemple.fr","prenom":"Mila","initiale":"M","statut":"HUMAIN","refBillet":"BIL-1014","anneeNaissance":null}
+{"seq":72,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_2136b981","typeConsentement":"CGU","version":"1.0"}
+{"seq":73,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_2136b981","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":74,"type":"APTITUDE_DECLAREE","ts":1790755200005,"jour":"2026-09-30","visiteurId":"vis_2136b981","apte":true}
+{"seq":75,"type":"TICKET_CREE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_47a53e32","visiteurId":"vis_2136b981","statut":"HUMAIN","rang":15,"estimationMin":15}
+{"seq":76,"type":"VISITEUR_ENREGISTRE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_ad45c984","email":"gabin15@exemple.fr","prenom":"Gabin","initiale":"G","statut":"HUMAIN","refBillet":"BIL-1015","anneeNaissance":null}
+{"seq":77,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_ad45c984","typeConsentement":"CGU","version":"1.0"}
+{"seq":78,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_ad45c984","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":79,"type":"APTITUDE_DECLAREE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_ad45c984","apte":true}
+{"seq":80,"type":"TICKET_CREE","ts":1790755200006,"jour":"2026-09-30","ticketId":"tk_82057297","visiteurId":"vis_ad45c984","statut":"HUMAIN","rang":16,"estimationMin":16}
+{"seq":81,"type":"VISITEUR_ENREGISTRE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_82057e2a","email":"lina16@exemple.fr","prenom":"Lina","initiale":"L","statut":"HUMAIN","refBillet":"BIL-1016","anneeNaissance":null}
+{"seq":82,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_82057e2a","typeConsentement":"CGU","version":"1.0"}
+{"seq":83,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_82057e2a","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":84,"type":"APTITUDE_DECLAREE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_82057e2a","apte":true}
+{"seq":85,"type":"TICKET_CREE","ts":1790755200006,"jour":"2026-09-30","ticketId":"tk_9881818e","visiteurId":"vis_82057e2a","statut":"HUMAIN","rang":17,"estimationMin":17}
+{"seq":86,"type":"VISITEUR_ENREGISTRE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_43ee33b6","email":"theo17@exemple.fr","prenom":"Theo","initiale":"T","statut":"HUMAIN","refBillet":"BIL-1017","anneeNaissance":null}
+{"seq":87,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_43ee33b6","typeConsentement":"CGU","version":"1.0"}
+{"seq":88,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_43ee33b6","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":89,"type":"APTITUDE_DECLAREE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_43ee33b6","apte":true}
+{"seq":90,"type":"TICKET_CREE","ts":1790755200006,"jour":"2026-09-30","ticketId":"tk_bb9b25b6","visiteurId":"vis_43ee33b6","statut":"HUMAIN","rang":18,"estimationMin":18}
+{"seq":91,"type":"VISITEUR_ENREGISTRE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_d57d0c75","email":"sarah18@exemple.fr","prenom":"Sarah","initiale":"S","statut":"HUMAIN","refBillet":"BIL-1018","anneeNaissance":null}
+{"seq":92,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_d57d0c75","typeConsentement":"CGU","version":"1.0"}
+{"seq":93,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_d57d0c75","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":94,"type":"APTITUDE_DECLAREE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_d57d0c75","apte":true}
+{"seq":95,"type":"TICKET_CREE","ts":1790755200006,"jour":"2026-09-30","ticketId":"tk_145f9bf7","visiteurId":"vis_d57d0c75","statut":"HUMAIN","rang":19,"estimationMin":19}
+{"seq":96,"type":"VISITEUR_ENREGISTRE","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_e6130222","email":"ilan19@exemple.fr","prenom":"Ilan","initiale":"I","statut":"HUMAIN","refBillet":"BIL-1019","anneeNaissance":null}
+{"seq":97,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_e6130222","typeConsentement":"CGU","version":"1.0"}
+{"seq":98,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200006,"jour":"2026-09-30","visiteurId":"vis_e6130222","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":99,"type":"APTITUDE_DECLAREE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_e6130222","apte":true}
+{"seq":100,"type":"TICKET_CREE","ts":1790755200007,"jour":"2026-09-30","ticketId":"tk_9bd83390","visiteurId":"vis_e6130222","statut":"HUMAIN","rang":20,"estimationMin":20}
+{"seq":101,"type":"VISITEUR_ENREGISTRE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_cc563dd3","email":"zoe20@exemple.fr","prenom":"Zoe","initiale":"Z","statut":"SUPER_SAIYAN","refBillet":"BIL-1020","anneeNaissance":null}
+{"seq":102,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_cc563dd3","typeConsentement":"CGU","version":"1.0"}
+{"seq":103,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_cc563dd3","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":104,"type":"APTITUDE_DECLAREE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_cc563dd3","apte":true}
+{"seq":105,"type":"TICKET_CREE","ts":1790755200007,"jour":"2026-09-30","ticketId":"tk_c9e8f615","visiteurId":"vis_cc563dd3","statut":"SUPER_SAIYAN","rang":21,"estimationMin":1}
+{"seq":106,"type":"VISITEUR_ENREGISTRE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_ab355a58","email":"hugo21@exemple.fr","prenom":"Hugo","initiale":"H","statut":"SAIYAN","refBillet":"BIL-1021","anneeNaissance":null}
+{"seq":107,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_ab355a58","typeConsentement":"CGU","version":"1.0"}
+{"seq":108,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_ab355a58","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":109,"type":"APTITUDE_DECLAREE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_ab355a58","apte":true}
+{"seq":110,"type":"TICKET_CREE","ts":1790755200007,"jour":"2026-09-30","ticketId":"tk_868db76f","visiteurId":"vis_ab355a58","statut":"SAIYAN","rang":22,"estimationMin":5}
+{"seq":111,"type":"VISITEUR_ENREGISTRE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_d488d2cf","email":"nour22@exemple.fr","prenom":"Nour","initiale":"N","statut":"SAIYAN","refBillet":"BIL-1022","anneeNaissance":null}
+{"seq":112,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_d488d2cf","typeConsentement":"CGU","version":"1.0"}
+{"seq":113,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_d488d2cf","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":114,"type":"APTITUDE_DECLAREE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_d488d2cf","apte":true}
+{"seq":115,"type":"TICKET_CREE","ts":1790755200007,"jour":"2026-09-30","ticketId":"tk_eb926b6d","visiteurId":"vis_d488d2cf","statut":"SAIYAN","rang":23,"estimationMin":6}
+{"seq":116,"type":"VISITEUR_ENREGISTRE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_219e4fa3","email":"basile23@exemple.fr","prenom":"Basile","initiale":"B","statut":"SAIYAN","refBillet":"BIL-1023","anneeNaissance":null}
+{"seq":117,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_219e4fa3","typeConsentement":"CGU","version":"1.0"}
+{"seq":118,"type":"CONSENTEMENT_RECUEILLI","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_219e4fa3","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":119,"type":"APTITUDE_DECLAREE","ts":1790755200007,"jour":"2026-09-30","visiteurId":"vis_219e4fa3","apte":true}
+{"seq":120,"type":"TICKET_CREE","ts":1790755200007,"jour":"2026-09-30","ticketId":"tk_7159fdb8","visiteurId":"vis_219e4fa3","statut":"SAIYAN","rang":24,"estimationMin":7}
+{"seq":121,"type":"TICKET_CONVOQUE","ts":1790755200008,"jour":"2026-09-30","ticketId":"tk_0a87a838","cycle":3}
+{"seq":122,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_c9e8f615","cycle":3}
+{"seq":123,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_f7f7a63f","cycle":3}
+{"seq":124,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_33ca47b2","cycle":3}
+{"seq":125,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_801dc778","cycle":3}
+{"seq":126,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_868db76f","cycle":3}
+{"seq":127,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_eb926b6d","cycle":3}
+{"seq":128,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_7159fdb8","cycle":3}
+{"seq":129,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_9f10b72b","cycle":3}
+{"seq":130,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_ba37145b","cycle":3}
+{"seq":131,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_1668a71f","cycle":3}
+{"seq":132,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_8e28bb1b","cycle":3}
+{"seq":133,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_8f57d014","cycle":3}
+{"seq":134,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_ebb811cf","cycle":3}
+{"seq":135,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_42808f15","cycle":3}
+{"seq":136,"type":"TICKET_CONVOQUE","ts":1790755200012,"jour":"2026-09-30","ticketId":"tk_c0055f6b","cycle":3}
+{"seq":137,"type":"TICKET_CONVOQUE","ts":1790755200013,"jour":"2026-09-30","ticketId":"tk_93c56a58","cycle":3}
+{"seq":138,"type":"TICKET_CONVOQUE","ts":1790755200013,"jour":"2026-09-30","ticketId":"tk_3b778f7f","cycle":3}
+{"seq":139,"type":"TICKET_CONVOQUE","ts":1790755200013,"jour":"2026-09-30","ticketId":"tk_47a53e32","cycle":3}
+{"seq":140,"type":"TICKET_CONVOQUE","ts":1790755200013,"jour":"2026-09-30","ticketId":"tk_82057297","cycle":3}
+{"seq":141,"type":"VISITEUR_ENREGISTRE","ts":1790755316352,"jour":"2026-09-30","visiteurId":"vis_d106af85","email":"chirine.boukyoud@gmail.com","prenom":"Chirinebouky","initiale":"C","statut":"SUPER_SAIYAN","refBillet":"BIL-0199","anneeNaissance":null}
+{"seq":142,"type":"CONSENTEMENT_RECUEILLI","ts":1790755358399,"jour":"2026-09-30","visiteurId":"vis_d106af85","typeConsentement":"CGU","version":"1.0"}
+{"seq":143,"type":"CONSENTEMENT_RECUEILLI","ts":1790755358400,"jour":"2026-09-30","visiteurId":"vis_d106af85","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":144,"type":"APTITUDE_DECLAREE","ts":1790755358405,"jour":"2026-09-30","visiteurId":"vis_d106af85","apte":true}
+{"seq":145,"type":"TICKET_CREE","ts":1790755369198,"jour":"2026-09-30","ticketId":"tk_4def87d0","visiteurId":"vis_d106af85","statut":"SUPER_SAIYAN","rang":25,"estimationMin":20}
+{"seq":146,"type":"TICKET_ANNULE","ts":1790755388970,"jour":"2026-09-30","ticketId":"tk_f7f7a63f","motif":"Désistement du visiteur"}
+{"seq":147,"type":"TICKET_CONVOQUE","ts":1790755388971,"jour":"2026-09-30","ticketId":"tk_4def87d0","cycle":3}
+{"seq":148,"type":"TICKET_CREE","ts":1790755393729,"jour":"2026-09-30","ticketId":"tk_4db1bcb2","visiteurId":"vis_acd076da","statut":"SAIYAN","rang":26,"estimationMin":21}
+{"seq":149,"type":"TICKET_ANNULE","ts":1790755400020,"jour":"2026-09-30","ticketId":"tk_4db1bcb2","motif":"Désistement du visiteur"}
+{"seq":150,"type":"TICKET_ANNULE","ts":1790755514270,"jour":"2026-09-30","ticketId":"tk_4def87d0","motif":"Désistement du visiteur"}
+{"seq":151,"type":"TICKET_CONVOQUE","ts":1790755514271,"jour":"2026-09-30","ticketId":"tk_9881818e","cycle":3}
+{"seq":152,"type":"VISITEUR_ENREGISTRE","ts":1790755539961,"jour":"2026-09-30","visiteurId":"vis_02cccadd","email":"selma.boukyoud@gmail.com","prenom":"Selmaboukyou","initiale":"S","statut":"HUMAIN","refBillet":"BIL-2840","anneeNaissance":null}
+{"seq":153,"type":"RAPPEL_ENVOYE","ts":1790755684899,"jour":"2026-09-30","ticketId":"tk_0a87a838"}
+{"seq":154,"type":"RAPPEL_ENVOYE","ts":1790755684902,"jour":"2026-09-30","ticketId":"tk_33ca47b2"}
+{"seq":155,"type":"RAPPEL_ENVOYE","ts":1790755684902,"jour":"2026-09-30","ticketId":"tk_801dc778"}
+{"seq":156,"type":"RAPPEL_ENVOYE","ts":1790755684902,"jour":"2026-09-30","ticketId":"tk_9f10b72b"}
+{"seq":157,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_ba37145b"}
+{"seq":158,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_1668a71f"}
+{"seq":159,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_8e28bb1b"}
+{"seq":160,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_8f57d014"}
+{"seq":161,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_ebb811cf"}
+{"seq":162,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_42808f15"}
+{"seq":163,"type":"RAPPEL_ENVOYE","ts":1790755684903,"jour":"2026-09-30","ticketId":"tk_c0055f6b"}
+{"seq":164,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_93c56a58"}
+{"seq":165,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_3b778f7f"}
+{"seq":166,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_47a53e32"}
+{"seq":167,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_82057297"}
+{"seq":168,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_c9e8f615"}
+{"seq":169,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_868db76f"}
+{"seq":170,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_eb926b6d"}
+{"seq":171,"type":"RAPPEL_ENVOYE","ts":1790755684904,"jour":"2026-09-30","ticketId":"tk_7159fdb8"}
+{"seq":172,"type":"CONSENTEMENT_RECUEILLI","ts":1790755758544,"jour":"2026-09-30","visiteurId":"vis_02cccadd","typeConsentement":"CGU","version":"1.0"}
+{"seq":173,"type":"CONSENTEMENT_RECUEILLI","ts":1790755758546,"jour":"2026-09-30","visiteurId":"vis_02cccadd","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":174,"type":"APTITUDE_DECLAREE","ts":1790755758551,"jour":"2026-09-30","visiteurId":"vis_02cccadd","apte":false}
+{"seq":175,"type":"APTITUDE_DECLAREE","ts":1790755819560,"jour":"2026-09-30","visiteurId":"vis_02cccadd","apte":true}
+{"seq":176,"type":"TICKET_EXPIRE","ts":1790755849979,"jour":"2026-09-30","ticketId":"tk_0a87a838","motif":"Absence à la convocation"}
+{"seq":177,"type":"TICKET_EXPIRE","ts":1790755849981,"jour":"2026-09-30","ticketId":"tk_33ca47b2","motif":"Absence à la convocation"}
+{"seq":178,"type":"TICKET_EXPIRE","ts":1790755849981,"jour":"2026-09-30","ticketId":"tk_801dc778","motif":"Absence à la convocation"}
+{"seq":179,"type":"TICKET_EXPIRE","ts":1790755849981,"jour":"2026-09-30","ticketId":"tk_9f10b72b","motif":"Absence à la convocation"}
+{"seq":180,"type":"TICKET_EXPIRE","ts":1790755849981,"jour":"2026-09-30","ticketId":"tk_ba37145b","motif":"Absence à la convocation"}
+{"seq":181,"type":"TICKET_EXPIRE","ts":1790755849981,"jour":"2026-09-30","ticketId":"tk_1668a71f","motif":"Absence à la convocation"}
+{"seq":182,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_8e28bb1b","motif":"Absence à la convocation"}
+{"seq":183,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_8f57d014","motif":"Absence à la convocation"}
+{"seq":184,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_ebb811cf","motif":"Absence à la convocation"}
+{"seq":185,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_42808f15","motif":"Absence à la convocation"}
+{"seq":186,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_c0055f6b","motif":"Absence à la convocation"}
+{"seq":187,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_93c56a58","motif":"Absence à la convocation"}
+{"seq":188,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_3b778f7f","motif":"Absence à la convocation"}
+{"seq":189,"type":"TICKET_EXPIRE","ts":1790755849982,"jour":"2026-09-30","ticketId":"tk_47a53e32","motif":"Absence à la convocation"}
+{"seq":190,"type":"TICKET_EXPIRE","ts":1790755849983,"jour":"2026-09-30","ticketId":"tk_82057297","motif":"Absence à la convocation"}
+{"seq":191,"type":"TICKET_EXPIRE","ts":1790755849983,"jour":"2026-09-30","ticketId":"tk_c9e8f615","motif":"Absence à la convocation"}
+{"seq":192,"type":"TICKET_EXPIRE","ts":1790755849983,"jour":"2026-09-30","ticketId":"tk_868db76f","motif":"Absence à la convocation"}
+{"seq":193,"type":"TICKET_EXPIRE","ts":1790755849983,"jour":"2026-09-30","ticketId":"tk_eb926b6d","motif":"Absence à la convocation"}
+{"seq":194,"type":"TICKET_EXPIRE","ts":1790755849983,"jour":"2026-09-30","ticketId":"tk_7159fdb8","motif":"Absence à la convocation"}
+{"seq":195,"type":"TICKET_CONVOQUE","ts":1790755849984,"jour":"2026-09-30","ticketId":"tk_bb9b25b6","cycle":3}
+{"seq":196,"type":"TICKET_CONVOQUE","ts":1790755849984,"jour":"2026-09-30","ticketId":"tk_145f9bf7","cycle":3}
+{"seq":197,"type":"TICKET_CONVOQUE","ts":1790755849984,"jour":"2026-09-30","ticketId":"tk_9bd83390","cycle":3}
+{"seq":198,"type":"RAPPEL_ENVOYE","ts":1790755995042,"jour":"2026-09-30","ticketId":"tk_9881818e"}
+{"seq":199,"type":"TICKET_EXPIRE","ts":1790756160102,"jour":"2026-09-30","ticketId":"tk_9881818e","motif":"Absence à la convocation"}
+{"seq":200,"type":"RAPPEL_ENVOYE","ts":1790756330175,"jour":"2026-09-30","ticketId":"tk_bb9b25b6"}
+{"seq":201,"type":"RAPPEL_ENVOYE","ts":1790756330176,"jour":"2026-09-30","ticketId":"tk_145f9bf7"}
+{"seq":202,"type":"RAPPEL_ENVOYE","ts":1790756330176,"jour":"2026-09-30","ticketId":"tk_9bd83390"}
+{"seq":203,"type":"TICKET_EXPIRE","ts":1790756495267,"jour":"2026-09-30","ticketId":"tk_bb9b25b6","motif":"Absence à la convocation"}
+{"seq":204,"type":"TICKET_EXPIRE","ts":1790756495269,"jour":"2026-09-30","ticketId":"tk_145f9bf7","motif":"Absence à la convocation"}
+{"seq":205,"type":"TICKET_EXPIRE","ts":1790756495269,"jour":"2026-09-30","ticketId":"tk_9bd83390","motif":"Absence à la convocation"}
+{"seq":206,"type":"TICKET_CREE","ts":1790756504830,"jour":"2026-09-30","ticketId":"tk_279fb1f7","visiteurId":"vis_d106af85","statut":"SUPER_SAIYAN","rang":27,"estimationMin":0}
+{"seq":207,"type":"TICKET_CONVOQUE","ts":1790756504830,"jour":"2026-09-30","ticketId":"tk_279fb1f7","cycle":4}
+{"seq":208,"type":"TICKET_ANNULE","ts":1790756507518,"jour":"2026-09-30","ticketId":"tk_279fb1f7","motif":"Désistement du visiteur"}
+{"seq":209,"type":"APTITUDE_DECLAREE","ts":1790755200001,"jour":"2026-09-30","visiteurId":"vis_8d953a8d","apte":true}
+{"seq":210,"type":"TICKET_CREE","ts":1790755200002,"jour":"2026-09-30","ticketId":"tk_9ea38ed6","visiteurId":"vis_8d953a8d","statut":"SUPER_SAIYAN","rang":28,"estimationMin":0}
+{"seq":211,"type":"APTITUDE_DECLAREE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_acd076da","apte":true}
+{"seq":212,"type":"TICKET_CREE","ts":1790755200002,"jour":"2026-09-30","ticketId":"tk_26c78bb9","visiteurId":"vis_acd076da","statut":"SAIYAN","rang":29,"estimationMin":1}
+{"seq":213,"type":"APTITUDE_DECLAREE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_66464477","apte":true}
+{"seq":214,"type":"TICKET_CREE","ts":1790755200002,"jour":"2026-09-30","ticketId":"tk_6784a2bc","visiteurId":"vis_66464477","statut":"SAIYAN","rang":30,"estimationMin":2}
+{"seq":215,"type":"APTITUDE_DECLAREE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_8e6f0cf8","apte":true}
+{"seq":216,"type":"TICKET_CREE","ts":1790755200002,"jour":"2026-09-30","ticketId":"tk_810df820","visiteurId":"vis_8e6f0cf8","statut":"SAIYAN","rang":31,"estimationMin":3}
+{"seq":217,"type":"APTITUDE_DECLAREE","ts":1790755200002,"jour":"2026-09-30","visiteurId":"vis_e1912fce","apte":true}
+{"seq":218,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_2f8ff0fd","visiteurId":"vis_e1912fce","statut":"HUMAIN","rang":32,"estimationMin":5}
+{"seq":219,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_2e731083","apte":true}
+{"seq":220,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_b8113234","visiteurId":"vis_2e731083","statut":"HUMAIN","rang":33,"estimationMin":7}
+{"seq":221,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_77197d69","apte":true}
+{"seq":222,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_df67b37e","visiteurId":"vis_77197d69","statut":"HUMAIN","rang":34,"estimationMin":8}
+{"seq":223,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_b055763a","apte":true}
+{"seq":224,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_c6b59a38","visiteurId":"vis_b055763a","statut":"HUMAIN","rang":35,"estimationMin":9}
+{"seq":225,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_66d837b8","apte":true}
+{"seq":226,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_a7228a5b","visiteurId":"vis_66d837b8","statut":"HUMAIN","rang":36,"estimationMin":11}
+{"seq":227,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_35d65873","apte":true}
+{"seq":228,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_970ed2d8","visiteurId":"vis_35d65873","statut":"HUMAIN","rang":37,"estimationMin":12}
+{"seq":229,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_e79e8ae9","apte":true}
+{"seq":230,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_347830c3","visiteurId":"vis_e79e8ae9","statut":"HUMAIN","rang":38,"estimationMin":13}
+{"seq":231,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_9c6f2af7","apte":true}
+{"seq":232,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_c12166b1","visiteurId":"vis_9c6f2af7","statut":"HUMAIN","rang":39,"estimationMin":15}
+{"seq":233,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_1390e033","apte":true}
+{"seq":234,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_ca18d957","visiteurId":"vis_1390e033","statut":"HUMAIN","rang":40,"estimationMin":16}
+{"seq":235,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_cd3feaec","apte":true}
+{"seq":236,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_67deb6f9","visiteurId":"vis_cd3feaec","statut":"HUMAIN","rang":41,"estimationMin":17}
+{"seq":237,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_2136b981","apte":true}
+{"seq":238,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_bf9f18d5","visiteurId":"vis_2136b981","statut":"HUMAIN","rang":42,"estimationMin":19}
+{"seq":239,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_ad45c984","apte":true}
+{"seq":240,"type":"TICKET_CREE","ts":1790755200003,"jour":"2026-09-30","ticketId":"tk_c4b1fea9","visiteurId":"vis_ad45c984","statut":"HUMAIN","rang":43,"estimationMin":20}
+{"seq":241,"type":"APTITUDE_DECLAREE","ts":1790755200003,"jour":"2026-09-30","visiteurId":"vis_82057e2a","apte":true}
+{"seq":242,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_d2559a78","visiteurId":"vis_82057e2a","statut":"HUMAIN","rang":44,"estimationMin":21}
+{"seq":243,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_43ee33b6","apte":true}
+{"seq":244,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_99d59398","visiteurId":"vis_43ee33b6","statut":"HUMAIN","rang":45,"estimationMin":23}
+{"seq":245,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_d57d0c75","apte":true}
+{"seq":246,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_128075e2","visiteurId":"vis_d57d0c75","statut":"HUMAIN","rang":46,"estimationMin":24}
+{"seq":247,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_e6130222","apte":true}
+{"seq":248,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_d423dd7f","visiteurId":"vis_e6130222","statut":"HUMAIN","rang":47,"estimationMin":25}
+{"seq":249,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_cc563dd3","apte":true}
+{"seq":250,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_8bdda332","visiteurId":"vis_cc563dd3","statut":"SUPER_SAIYAN","rang":48,"estimationMin":1}
+{"seq":251,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_ab355a58","apte":true}
+{"seq":252,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_ccf7a7f1","visiteurId":"vis_ab355a58","statut":"SAIYAN","rang":49,"estimationMin":6}
+{"seq":253,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_d488d2cf","apte":true}
+{"seq":254,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_c6e1a617","visiteurId":"vis_d488d2cf","statut":"SAIYAN","rang":50,"estimationMin":7}
+{"seq":255,"type":"APTITUDE_DECLAREE","ts":1790755200004,"jour":"2026-09-30","visiteurId":"vis_219e4fa3","apte":true}
+{"seq":256,"type":"TICKET_CREE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_65dff0ae","visiteurId":"vis_219e4fa3","statut":"SAIYAN","rang":51,"estimationMin":8}
+{"seq":257,"type":"TICKET_CONVOQUE","ts":1790755200004,"jour":"2026-09-30","ticketId":"tk_9ea38ed6","cycle":3}
+{"seq":258,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_8bdda332","cycle":3}
+{"seq":259,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_26c78bb9","cycle":3}
+{"seq":260,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_6784a2bc","cycle":3}
+{"seq":261,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_810df820","cycle":3}
+{"seq":262,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_ccf7a7f1","cycle":3}
+{"seq":263,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_c6e1a617","cycle":3}
+{"seq":264,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_65dff0ae","cycle":3}
+{"seq":265,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_2f8ff0fd","cycle":3}
+{"seq":266,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_b8113234","cycle":3}
+{"seq":267,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_df67b37e","cycle":3}
+{"seq":268,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_c6b59a38","cycle":3}
+{"seq":269,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_a7228a5b","cycle":3}
+{"seq":270,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_970ed2d8","cycle":3}
+{"seq":271,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_347830c3","cycle":3}
+{"seq":272,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_c12166b1","cycle":3}
+{"seq":273,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_ca18d957","cycle":3}
+{"seq":274,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_67deb6f9","cycle":3}
+{"seq":275,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_bf9f18d5","cycle":3}
+{"seq":276,"type":"TICKET_CONVOQUE","ts":1790755200005,"jour":"2026-09-30","ticketId":"tk_c4b1fea9","cycle":3}
+{"seq":277,"type":"VISITEUR_ENREGISTRE","ts":1790755221339,"jour":"2026-09-30","visiteurId":"vis_ae891df7","email":"aaa.bbb@gmail.com","prenom":"Aaabbb","initiale":"A","statut":"HUMAIN","refBillet":"BIL-5794","anneeNaissance":null}
+{"seq":278,"type":"CONSENTEMENT_RECUEILLI","ts":1790755292801,"jour":"2026-09-30","visiteurId":"vis_ae891df7","typeConsentement":"CGU","version":"1.0"}
+{"seq":279,"type":"CONSENTEMENT_RECUEILLI","ts":1790755292802,"jour":"2026-09-30","visiteurId":"vis_ae891df7","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":280,"type":"APTITUDE_DECLAREE","ts":1790755292807,"jour":"2026-09-30","visiteurId":"vis_ae891df7","apte":false}
+{"seq":281,"type":"APTITUDE_DECLAREE","ts":1790755293951,"jour":"2026-09-30","visiteurId":"vis_ae891df7","apte":true}
+{"seq":282,"type":"TICKET_CREE","ts":1790755294802,"jour":"2026-09-30","ticketId":"tk_033c1d3e","visiteurId":"vis_ae891df7","statut":"HUMAIN","rang":52,"estimationMin":35}
+{"seq":283,"type":"VISITEUR_ENREGISTRE","ts":1790755311549,"jour":"2026-09-30","visiteurId":"vis_97c307b0","email":"a.b@gmail.com","prenom":"Ab","initiale":"A","statut":"HUMAIN","refBillet":"BIL-9532","anneeNaissance":null}
+{"seq":284,"type":"RAPPEL_ENVOYE","ts":1790755680667,"jour":"2026-09-30","ticketId":"tk_9ea38ed6"}
+{"seq":285,"type":"RAPPEL_ENVOYE","ts":1790755680670,"jour":"2026-09-30","ticketId":"tk_26c78bb9"}
+{"seq":286,"type":"RAPPEL_ENVOYE","ts":1790755680671,"jour":"2026-09-30","ticketId":"tk_6784a2bc"}
+{"seq":287,"type":"RAPPEL_ENVOYE","ts":1790755680671,"jour":"2026-09-30","ticketId":"tk_810df820"}
+{"seq":288,"type":"RAPPEL_ENVOYE","ts":1790755680671,"jour":"2026-09-30","ticketId":"tk_2f8ff0fd"}
+{"seq":289,"type":"RAPPEL_ENVOYE","ts":1790755680671,"jour":"2026-09-30","ticketId":"tk_b8113234"}
+{"seq":290,"type":"RAPPEL_ENVOYE","ts":1790755680671,"jour":"2026-09-30","ticketId":"tk_df67b37e"}
+{"seq":291,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_c6b59a38"}
+{"seq":292,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_a7228a5b"}
+{"seq":293,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_970ed2d8"}
+{"seq":294,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_347830c3"}
+{"seq":295,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_c12166b1"}
+{"seq":296,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_ca18d957"}
+{"seq":297,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_67deb6f9"}
+{"seq":298,"type":"RAPPEL_ENVOYE","ts":1790755680672,"jour":"2026-09-30","ticketId":"tk_bf9f18d5"}
+{"seq":299,"type":"RAPPEL_ENVOYE","ts":1790755680673,"jour":"2026-09-30","ticketId":"tk_c4b1fea9"}
+{"seq":300,"type":"RAPPEL_ENVOYE","ts":1790755680673,"jour":"2026-09-30","ticketId":"tk_8bdda332"}
+{"seq":301,"type":"RAPPEL_ENVOYE","ts":1790755680673,"jour":"2026-09-30","ticketId":"tk_ccf7a7f1"}
+{"seq":302,"type":"RAPPEL_ENVOYE","ts":1790755680673,"jour":"2026-09-30","ticketId":"tk_c6e1a617"}
+{"seq":303,"type":"RAPPEL_ENVOYE","ts":1790755680673,"jour":"2026-09-30","ticketId":"tk_65dff0ae"}
+{"seq":304,"type":"TICKET_EXPIRE","ts":1790755845754,"jour":"2026-09-30","ticketId":"tk_9ea38ed6","motif":"Absence à la convocation"}
+{"seq":305,"type":"TICKET_EXPIRE","ts":1790755845756,"jour":"2026-09-30","ticketId":"tk_26c78bb9","motif":"Absence à la convocation"}
+{"seq":306,"type":"TICKET_EXPIRE","ts":1790755845756,"jour":"2026-09-30","ticketId":"tk_6784a2bc","motif":"Absence à la convocation"}
+{"seq":307,"type":"TICKET_EXPIRE","ts":1790755845757,"jour":"2026-09-30","ticketId":"tk_810df820","motif":"Absence à la convocation"}
+{"seq":308,"type":"TICKET_EXPIRE","ts":1790755845757,"jour":"2026-09-30","ticketId":"tk_2f8ff0fd","motif":"Absence à la convocation"}
+{"seq":309,"type":"TICKET_EXPIRE","ts":1790755845757,"jour":"2026-09-30","ticketId":"tk_b8113234","motif":"Absence à la convocation"}
+{"seq":310,"type":"TICKET_EXPIRE","ts":1790755845757,"jour":"2026-09-30","ticketId":"tk_df67b37e","motif":"Absence à la convocation"}
+{"seq":311,"type":"TICKET_EXPIRE","ts":1790755845757,"jour":"2026-09-30","ticketId":"tk_c6b59a38","motif":"Absence à la convocation"}
+{"seq":312,"type":"TICKET_EXPIRE","ts":1790755845757,"jour":"2026-09-30","ticketId":"tk_a7228a5b","motif":"Absence à la convocation"}
+{"seq":313,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_970ed2d8","motif":"Absence à la convocation"}
+{"seq":314,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_347830c3","motif":"Absence à la convocation"}
+{"seq":315,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_c12166b1","motif":"Absence à la convocation"}
+{"seq":316,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_ca18d957","motif":"Absence à la convocation"}
+{"seq":317,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_67deb6f9","motif":"Absence à la convocation"}
+{"seq":318,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_bf9f18d5","motif":"Absence à la convocation"}
+{"seq":319,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_c4b1fea9","motif":"Absence à la convocation"}
+{"seq":320,"type":"TICKET_EXPIRE","ts":1790755845758,"jour":"2026-09-30","ticketId":"tk_8bdda332","motif":"Absence à la convocation"}
+{"seq":321,"type":"TICKET_EXPIRE","ts":1790755845759,"jour":"2026-09-30","ticketId":"tk_ccf7a7f1","motif":"Absence à la convocation"}
+{"seq":322,"type":"TICKET_EXPIRE","ts":1790755845759,"jour":"2026-09-30","ticketId":"tk_c6e1a617","motif":"Absence à la convocation"}
+{"seq":323,"type":"TICKET_EXPIRE","ts":1790755845759,"jour":"2026-09-30","ticketId":"tk_65dff0ae","motif":"Absence à la convocation"}
+{"seq":324,"type":"TICKET_CONVOQUE","ts":1790755845759,"jour":"2026-09-30","ticketId":"tk_d2559a78","cycle":3}
+{"seq":325,"type":"TICKET_CONVOQUE","ts":1790755845759,"jour":"2026-09-30","ticketId":"tk_99d59398","cycle":3}
+{"seq":326,"type":"TICKET_CONVOQUE","ts":1790755845760,"jour":"2026-09-30","ticketId":"tk_128075e2","cycle":3}
+{"seq":327,"type":"TICKET_CONVOQUE","ts":1790755845760,"jour":"2026-09-30","ticketId":"tk_d423dd7f","cycle":3}
+{"seq":328,"type":"TICKET_CONVOQUE","ts":1790755845760,"jour":"2026-09-30","ticketId":"tk_033c1d3e","cycle":3}
+{"seq":329,"type":"CONSENTEMENT_RECUEILLI","ts":1790756211731,"jour":"2026-09-30","visiteurId":"vis_97c307b0","typeConsentement":"CGU","version":"1.0"}
+{"seq":330,"type":"CONSENTEMENT_RECUEILLI","ts":1790756211734,"jour":"2026-09-30","visiteurId":"vis_97c307b0","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":331,"type":"APTITUDE_DECLAREE","ts":1790756211737,"jour":"2026-09-30","visiteurId":"vis_97c307b0","apte":false}
+{"seq":332,"type":"RAPPEL_ENVOYE","ts":1790756325998,"jour":"2026-09-30","ticketId":"tk_d2559a78"}
+{"seq":333,"type":"RAPPEL_ENVOYE","ts":1790756326001,"jour":"2026-09-30","ticketId":"tk_99d59398"}
+{"seq":334,"type":"RAPPEL_ENVOYE","ts":1790756326001,"jour":"2026-09-30","ticketId":"tk_128075e2"}
+{"seq":335,"type":"RAPPEL_ENVOYE","ts":1790756326001,"jour":"2026-09-30","ticketId":"tk_d423dd7f"}
+{"seq":336,"type":"RAPPEL_ENVOYE","ts":1790756326002,"jour":"2026-09-30","ticketId":"tk_033c1d3e"}
