@@ -490,7 +490,7 @@ function ecranFinParcours(ticket, visiteur) {
   const textes = {
     VALIDE: ['Code validé', "Suivez la file : un agent vous fera entrer dans la Salle du Temps dès qu'une place se libère. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc."],
     EXPIRE: ['Convocation expirée', "Vous n'avez pas rejoint la file de l'attraction à temps. Vous pouvez vous réinscrire en fin de file."],
-    ANNULE: ['Vous avez quitte la file', 'Votre place a été libérée. Vous pouvez vous réinscrire quand vous voulez.'],
+    ANNULE: ['Vous avez quitté la file', 'Votre place a été libérée. Vous pouvez vous réinscrire quand vous voulez.'],
     RETIRE: ['Ticket retiré par un agent', ticket.motif || 'Un agent a retiré votre ticket.'],
     PURGE: ['Attraction fermée', ticket.motif || 'L\'attraction a fermé pour la journée.'],
   }[ticket.etat] || ['Parcours terminé', ''];
