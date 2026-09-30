@@ -36,6 +36,14 @@ function echapper(t) {
   return String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+/** 30 -> « 30 s », 120 -> « 2 min », 75 -> « 1 min 15 s ». */
+function formaterDuree(sec) {
+  const total = Math.round(Number(sec) || 0);
+  const m = Math.floor(total / 60), s = total % 60;
+  if (!m) return `${s} s`;
+  return s ? `${m} min ${s} s` : `${m} min`;
+}
+
 async function api(methode, chemin, corps) {
   const reponse = await fetch(chemin, {
     method: methode,
@@ -155,13 +163,16 @@ function rendre() {
 function rendreBandeau() {
   const v = S.vue;
   const etats = { OUVERTE: '', EN_PAUSE: 'pause', PURGEE: 'alerte' };
+  // Les compteurs de la salle et de la file reelle sont des donnees
+  // d'exploitation : on ne les affiche qu'a l'equipe, pas aux visiteurs.
+  const equipe = S.role === 'agent' || S.role === 'admin';
   $('#bandeau').innerHTML = `
     <span class="horloge">${v ? v.horloge.heure : '--:--'}</span>
     ${v && v.horloge.vitesse !== 1 ? `<span class="pastille">x${v.horloge.vitesse}</span>` : ''}
     <span>${v ? echapper(v.file.nom) : 'Waitless'}</span>
     ${v ? `<span class="pastille ${etats[v.file.etat] || ''}">${libelleEtatFile(v)}</span>` : ''}
-    ${v ? `<span class="pastille ${v.salle.pleine ? 'alerte' : ''}">Salle ${v.salle.occupation}/${v.salle.capacite}</span>` : ''}
-    ${v ? `<span class="pastille ${v.fileReelle.pleine ? 'alerte' : ''}">File réelle ${v.fileReelle.occupation}/${v.fileReelle.capacite}</span>` : ''}
+    ${v && equipe ? `<span class="pastille ${v.salle.pleine ? 'alerte' : ''}">Salle ${v.salle.occupation}/${v.salle.capacite}</span>` : ''}
+    ${v && equipe ? `<span class="pastille ${v.fileReelle.pleine ? 'alerte' : ''}">File réelle ${v.fileReelle.occupation}/${v.fileReelle.capacite}</span>` : ''}
     <span class="pousse">${S.role ? `<button data-action="deconnexion">Quitter (${S.role})</button>` : ''}</span>
   `;
   // Le bandeau est parfois redessine seul (pendant une saisie) : il rebranche
@@ -407,20 +418,12 @@ function ecranFinParcours(ticket) {
 
 function blocEtatFile() {
   const v = S.vue;
-  const pctSalle = Math.min(100, Math.round((v.salle.occupation / v.salle.capacite) * 100));
-  const pctFile = Math.min(100, Math.round((v.fileReelle.occupation / v.fileReelle.capacite) * 100));
   return `<div class="bloc">
       <h3>L'attraction en direct</h3>
       <div class="indicateurs">
         <div class="indicateur"><div class="valeur">${v.compteurs.enAttente}</div><div class="titre">dans la file virtuelle</div></div>
-        <div class="indicateur"><div class="valeur">${v.fileReelle.presents}</div><div class="titre">devant l'attraction</div></div>
         <div class="indicateur"><div class="valeur">${v.compteurs.entres}</div><div class="titre">entrées aujourd'hui</div></div>
       </div>
-      <p class="discret" style="margin-top:12px">Salle du Temps : ${v.salle.occupation} / ${v.salle.capacite} places</p>
-      <div class="jauge ${pctSalle >= 90 ? 'pleine' : ''}"><span style="width:${pctSalle}%"></span></div>
-      <p class="discret" style="margin-top:10px">File d'attente sur place : ${v.fileReelle.occupation} / ${v.fileReelle.capacite}</p>
-      <div class="jauge ${pctFile >= 90 ? 'pleine' : ''}"><span style="width:${pctFile}%"></span></div>
-      <small>Comptage de la salle : ${v.salle.source}.</small>
     </div>`;
 }
 
@@ -437,8 +440,9 @@ function blocInfos() {
       seconde fois pour vous faire entrer dès qu'une place se libère.</p>
       <h3>Capacité</h3>
       <p>La Salle du Temps accueille ${v.salle.capacite} personnes. Chacun en sort quand il le
-      souhaite ; le séjour dure ${v.salle.dureeSejourMoyenneMin} minutes en moyenne, soit environ
-      ${v.salle.debitNominal} entrées par heure.</p>
+      souhaite ; un séjour dure entre ${formaterDuree(v.salle.dureeSejourMinSec)} et
+      ${formaterDuree(v.salle.dureeSejourMaxSec)}. Les places se libèrent donc en continu,
+      à un rythme soutenu : l'essentiel de votre attente se passe dans le parc.</p>
       <h3>Accès</h3>
       <p>La Salle du Temps soumet le corps à une forte pesanteur. L'accès est refusé
       aux personnes ayant déclaré ne pas être aptes.</p>
@@ -464,7 +468,6 @@ function blocRegles() {
 }
 
 function blocProfil(visiteur) {
-  const messages = (S.moi.messages || []).slice(0, 8);
   return `<div class="bloc">
       <h3>Ce que nous conservons</h3>
       <p class="discret">${echapper(visiteur.email)} · ${echapper(visiteur.prenom)} ${echapper(visiteur.initiale)}.
@@ -475,12 +478,6 @@ function blocProfil(visiteur) {
         <button class="sobre" data-action="exporter">Exporter mes données</button>
         <button class="danger" data-action="effacer">Effacer mes données</button>
       </div>
-    </div>
-    <div class="bloc">
-      <h3>Mes notifications</h3>
-      <button class="sobre" data-action="messages">Actualiser</button>
-      ${messages.length ? messages.map((m) => `<p><strong>${echapper(m.sujet)}</strong><br><small>${echapper(m.corps)}</small></p>`).join('')
-        : '<p class="vide-liste">Aucun message pour le moment.</p>'}
     </div>`;
 }
 
@@ -698,10 +695,13 @@ function blocAffluence() {
     </div>
     <div class="bloc">
       <h3>Débit</h3>
-      <p>${v.salle.capacite} places libérées toutes les ${v.salle.dureeSejourMoyenneMin} minutes en moyenne,
-      soit un débit nominal de ${v.salle.debitNominal} visiteurs par heure.</p>
+      <p>Un séjour dure de ${formaterDuree(v.salle.dureeSejourMinSec)} à ${formaterDuree(v.salle.dureeSejourMaxSec)}
+      (${formaterDuree(v.salle.dureeSejourMoyenneSec)} en moyenne) : les ${v.salle.capacite} places se renouvellent
+      donc en continu, soit un débit nominal théorique de ${v.salle.debitNominal} visiteurs par heure.</p>
       <p class="discret">Il n'y a ni cycle ni fournée : la salle fonctionne en flux continu.
-      Le débit réellement observé sur les 30 dernières minutes corrige cette hypothèse
+      À ce rythme, la salle n'est plus le goulet d'étranglement : c'est le contrôle à l'entrée
+      (scan et pièce d'identité) et le trajet des convoqués qui fixent le débit réel.
+      Le débit observé sur les 30 dernières minutes corrige cette hypothèse
       dans l'estimation affichée aux visiteurs.</p>
     </div>`;
 }
@@ -710,7 +710,8 @@ function blocAffluence() {
 const CHAMPS_REGLES = [
   ['capaciteSalle', 'Capacité de la Salle du Temps'],
   ['capaciteFileReelle', 'Capacité de la file réelle'],
-  ['dureeSejourMoyenneMin', 'Durée moyenne de séjour (min)'],
+  ['dureeSejourMinSec', 'Durée minimale de séjour (s)'],
+  ['dureeSejourMaxSec', 'Durée maximale de séjour (s)'],
   ['fenetreQuotaConvocations', 'Fenêtre des quotas (convocations)'],
   ['horizonUrgenceMin', 'Horizon d\'urgence des garanties (min)'],
   ['delaiConvocationSec', 'Délai pour rejoindre la file réelle (s)'],
@@ -902,12 +903,6 @@ async function executer(action, data) {
       if (!confirm('Effacer définitivement vos données ? Votre ticket sera annulé.')) return;
       await agir(() => api('DELETE', '/api/me'));
       return seDeconnecter();
-    }
-
-    case 'messages': {
-      const r = await api('GET', '/api/me/messages');
-      S.moi.messages = r.messages;
-      return rendre();
     }
 
     case 'scanner': {

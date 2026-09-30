@@ -26,6 +26,7 @@ import {
 import { etatInscriptions, enHeure, occupationSalle } from '../domain/commands.js';
 import { resteGarantieMin } from '../domain/scheduler.js';
 import { dernierReleve } from '../infra/sensor.js';
+import { dureeSejourMoyenneSec } from '../config/rules.js';
 
 /* ------------------------------------------------------------------------ */
 /* Vue « file » : partagee par les trois interfaces et poussee en SSE        */
@@ -79,7 +80,9 @@ export function vueFile(state) {
       source: capteur.source,
       erreur: capteur.erreur,
       age: capteur.ts ? Math.round((maintenant() - capteur.ts) / 1000) : null,
-      dureeSejourMoyenneMin: r.dureeSejourMoyenneMin,
+      dureeSejourMinSec: r.dureeSejourMinSec,
+      dureeSejourMaxSec: r.dureeSejourMaxSec,
+      dureeSejourMoyenneSec: dureeSejourMoyenneSec(r),
       debitNominal: Math.round(debitNominal(r)),
     },
 
@@ -294,7 +297,7 @@ export function vueMetriques(state) {
   // theoriquement offertes (capacite x rotations depuis le debut d'exploitation).
   const minutesExploitees = Math.max(1, minutesDuJour() - r.debutExploitation);
   const placesOffertes = Math.max(
-    1, Math.round(r.capaciteSalle * (minutesExploitees / r.dureeSejourMoyenneMin)),
+    1, Math.round(r.capaciteSalle * ((minutesExploitees * 60) / dureeSejourMoyenneSec(r))),
   );
 
   const dureeIncidentsMin = state.incidents.reduce(
