@@ -13,6 +13,12 @@
     main. Ce mode degrade est celui prevu au chapitre 8 du cahier des charges.
   -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!--
+    Decodage QR par camera pour les navigateurs sans BarcodeDetector (Safari/
+    iOS). Facultatif comme la ressource precedente : sans elle, la saisie
+    manuelle reste toujours disponible.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body>
   <!-- Bandeau d'etat : horloge d'exploitation, etat de la file, role courant. -->

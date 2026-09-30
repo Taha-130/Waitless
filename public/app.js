@@ -1004,7 +1004,10 @@ async function executer(action, data) {
 /* ------------------------------------------- Scan par la camera (option) - */
 
 async function scannerAvecCamera() {
-  if (!('BarcodeDetector' in window)) {
+  // BarcodeDetector est natif et rapide, mais absent de Safari/iOS : jsQR
+  // (charge dans index.html) sert de repli, via un canvas hors ecran.
+  const detecteurNatif = 'BarcodeDetector' in window ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+  if (!detecteurNatif && !window.jsQR) {
     return annoncer('Ce navigateur ne sait pas lire les QR codes. Saisissez le code à la main.', 'info');
   }
   const video = document.getElementById('video');
@@ -1013,15 +1016,30 @@ async function scannerAvecCamera() {
     video.style.display = 'block';
     video.srcObject = flux;
     await video.play();
-    const detecteur = new window.BarcodeDetector({ formats: ['qr_code'] });
+
+    const canvas = detecteurNatif ? null : document.createElement('canvas');
+    const ctx = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+
+    const detecter = async () => {
+      if (detecteurNatif) {
+        const codes = await detecteurNatif.detect(video).catch(() => []);
+        return codes[0]?.rawValue || null;
+      }
+      if (!video.videoWidth) return null;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      return window.jsQR(image.data, image.width, image.height)?.data || null;
+    };
 
     const boucle = async () => {
       if (!video.srcObject) return;
-      const codes = await detecteur.detect(video).catch(() => []);
-      if (codes.length) {
+      const valeur = await detecter();
+      if (valeur) {
         flux.getTracks().forEach((t) => t.stop());
         video.srcObject = null; video.style.display = 'none';
-        document.getElementById('jeton').value = codes[0].rawValue;
+        document.getElementById('jeton').value = valeur;
         return executer('scanner', {});
       }
       requestAnimationFrame(boucle);
