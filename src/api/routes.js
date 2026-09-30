@@ -13,7 +13,9 @@
 
 import { etat, publier } from '../domain/eventStore.js';
 import { reglerHorloge, etatHorloge, maintenant } from '../domain/clock.js';
-import { ticketActifDe, ETATS_TICKET } from '../domain/state.js';
+import {
+  ticketActifDe, dernierTicketDe, occupationSalleEstimee, ETATS_TICKET,
+} from '../domain/state.js';
 import { genererJeton } from '../domain/qr.js';
 import { ordonnancer } from '../domain/scheduler.js';
 import { validerRegles } from '../config/rules.js';
@@ -22,10 +24,10 @@ import {
   enregistrerVisiteur, donnerConsentements, declarerAptitude,
   rejoindreFile, seDesister, retirerTicket,
   mettreEnPause, reprendre, purger, rouvrirFile,
-  ouvrirIncident, cloreIncident, scanner, modifierRegles,
+  ouvrirIncident, cloreIncident, scanner, modifierRegles, ETAPES_SCAN,
 } from '../domain/commands.js';
 import { envoyer, messages } from '../infra/mailer.js';
-import { dernierReleve, forcerOccupation } from '../infra/sensor.js';
+import { dernierReleve, forcerOccupation, releverCapteur } from '../infra/sensor.js';
 import { semer } from '../infra/jeuDeDonnees.js';
 import { erreurHttp, ouvrirFlux } from './http.js';
 import {
@@ -84,7 +86,9 @@ export function enregistrerRoutes(app) {
 
   app.get('/api/me', (ctx) => {
     const v = exigerVisiteur(ctx);
-    const t = ticketActifDe(etat(), v.id);
+    // Le dernier ticket, actif ou termine : le visiteur a droit a la confirmation
+    // de son entree, ou a l'explication de son expiration.
+    const t = dernierTicketDe(etat(), v.id);
     return { visiteur: profil(v), ticket: vueTicket(etat(), t), textes: TEXTES };
   });
 
@@ -175,7 +179,9 @@ export function enregistrerRoutes(app) {
     const v = exigerVisiteur(ctx);
     const t = etat().tickets[ctx.params.id];
     if (!t || t.visiteurId !== v.id) throw erreurHttp(404, 'Ticket introuvable');
-    if (t.etat !== ETATS_TICKET.CONVOQUE) {
+    // Le code s'active a la convocation et reste actif dans la file reelle : il
+    // doit servir deux fois, a l'arrivee puis a l'entree.
+    if (![ETATS_TICKET.CONVOQUE, ETATS_TICKET.EN_FILE_REELLE].includes(t.etat)) {
       throw new ErreurMetier('Le code n\'est actif qu\'une fois convoqué', 'NON_CONVOQUE');
     }
     return genererJeton(t.id, etat().regles.validiteJetonQrSec);
@@ -185,9 +191,35 @@ export function enregistrerRoutes(app) {
   /* Console agent                                                        */
   /* ==================================================================== */
 
+  /**
+   * Scan du QR code. Le MEME code est presente deux fois dans le parcours :
+   *   - a l'arrivee dans la file reelle, pour arreter le compte a rebours ;
+   *   - a l'entree dans la salle, quand une place se libere.
+   * Sans `etape`, le systeme deduit laquelle des deux a partir de l'etat du
+   * ticket : l'agent n'a qu'un geste a faire, toujours le meme.
+   */
   app.post('/api/agent/scans', (ctx) => {
     const s = exigerRole(ctx, 'agent', 'admin');
-    const resultat = scanner(ctx.body.jeton, s.role);
+    const etape = ctx.body.etape || ETAPES_SCAN.AUTO;
+    const resultat = scanner(ctx.body.jeton, s.role, etape);
+    ordonnancer(etat());
+    diffuserEtat();
+    return resultat;
+  });
+
+  // Alias explicites, utiles si le poste d'entree de file et le poste de porte
+  // sont deux terminaux distincts.
+  app.post('/api/agent/scans/arrivee', (ctx) => {
+    const s = exigerRole(ctx, 'agent', 'admin');
+    const resultat = scanner(ctx.body.jeton, s.role, ETAPES_SCAN.ARRIVEE);
+    ordonnancer(etat());
+    diffuserEtat();
+    return resultat;
+  });
+
+  app.post('/api/agent/scans/entree', (ctx) => {
+    const s = exigerRole(ctx, 'agent', 'admin');
+    const resultat = scanner(ctx.body.jeton, s.role, ETAPES_SCAN.ENTREE);
     ordonnancer(etat());
     diffuserEtat();
     return resultat;
@@ -256,15 +288,23 @@ export function enregistrerRoutes(app) {
   });
 
   /* ==================================================================== */
-  /* Capteur de la salle d'attente (F-14)                                 */
+  /* Capteur de la Salle du Temps (F-14)                                  */
   /* ==================================================================== */
 
+  // Le capteur compte les personnes PRESENTES DANS LA SALLE. C'est la seule
+  // mesure que le systeme ne peut pas deduire : personne ne scanne en sortant.
+  app.get('/api/sensors/time-chamber/:id', () => dernierReleve());
+  // Ancien chemin, conserve le temps que les capteurs deployes soient reconfigures.
   app.get('/api/sensors/waiting-room/:id', () => dernierReleve());
 
   // Permet de jouer la saturation de la salle pendant la demonstration.
-  app.put('/api/mock/sensors', (ctx) => {
+  app.put('/api/mock/sensors', async (ctx) => {
     exigerRole(ctx, 'admin');
     const valeur = forcerOccupation(ctx.body.occupation);
+    // Releve immediat, sans attendre le battement suivant. C'est surtout vrai
+    // au RELACHEMENT du forcage : sans cela, l'ecran continuerait d'afficher
+    // une salle pleine pendant cinq secondes apres qu'on l'a liberee.
+    await releverCapteur(etat().regles.capteurUrl, occupationSalleEstimee(etat(), maintenant()));
     diffuserEtat();
     return { forcage: valeur, releve: dernierReleve() };
   });
@@ -316,7 +356,10 @@ export function enregistrerRoutes(app) {
   // Peuplement du jeu de donnees fictif, sans arreter le serveur.
   app.post('/api/admin/seed', (ctx) => {
     exigerRole(ctx, 'admin');
-    const resultat = semer(Number(ctx.body.nombre) || 24);
+    const resultat = semer(Number(ctx.body.nombre) || 24, {
+      arrivees: Number(ctx.body.arrivees) || 0,
+      entrees: Number(ctx.body.entrees) || 0,
+    });
     diffuserEtat();
     return resultat;
   });

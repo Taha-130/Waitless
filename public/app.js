@@ -160,7 +160,8 @@ function rendreBandeau() {
     ${v && v.horloge.vitesse !== 1 ? `<span class="pastille">x${v.horloge.vitesse}</span>` : ''}
     <span>${v ? echapper(v.file.nom) : 'Waitless'}</span>
     ${v ? `<span class="pastille ${etats[v.file.etat] || ''}">${libelleEtatFile(v)}</span>` : ''}
-    ${v ? `<span class="pastille">Salle ${v.capteur.occupation}/${v.capteur.capacite}</span>` : ''}
+    ${v ? `<span class="pastille ${v.salle.pleine ? 'alerte' : ''}">Salle ${v.salle.occupation}/${v.salle.capacite}</span>` : ''}
+    ${v ? `<span class="pastille ${v.fileReelle.pleine ? 'alerte' : ''}">File réelle ${v.fileReelle.occupation}/${v.fileReelle.capacite}</span>` : ''}
     <span class="pousse">${S.role ? `<button data-action="deconnexion">Quitter (${S.role})</button>` : ''}</span>
   `;
   // Le bandeau est parfois redessine seul (pendant une saisie) : il rebranche
@@ -229,8 +230,10 @@ function ecranVisiteur() {
     </div>`;
   }
 
-  // Etape 3 : convocation en cours -> prise de parole plein ecran.
+  // Etape 3 : convoque -> prise de parole plein ecran, il faut se deplacer.
   if (ticket && ticket.etat === 'CONVOQUE') return ecranConvocation(ticket);
+  // Etape 4 : arrive devant l'attraction, il patiente, code en main.
+  if (ticket && ticket.etat === 'EN_FILE_REELLE') return ecranFileReelle(ticket);
 
   // Etape 2 : pas de ticket -> page attraction. Sinon suivi du ticket.
   if (!ticket) return ecranAttraction(visiteur);
@@ -265,6 +268,7 @@ function ecranAttraction(visiteur) {
   const a = S.vue.attente[code];
   const i = S.vue.inscriptions[code];
   const garantie = S.vue.statuts[code].garantieMin;
+  const sansAttente = a.basse === 0 && a.haute === 0;
 
   const onglets = barreOnglets([
     ['attente', 'Attente'], ['infos', 'Infos'], ['regles', 'Regles'], ['profil', 'Mes donnees'],
@@ -280,7 +284,9 @@ function ecranAttraction(visiteur) {
       <p class="discret">Votre statut :
         <span class="etiquette ${code}">${echapper(S.vue.statuts[code].libelle)}</span>
         ${garantie ? ` — attente garantie à ${garantie} min` : ''}</p>
-      <div class="fourchette">${a.basse}–${a.haute} <span class="discret">minutes d'attente</span></div>
+      ${sansAttente
+        ? '<div class="fourchette">Aucune attente <span class="discret">- entrée immédiate</span></div>'
+        : `<div class="fourchette">${a.basse} à ${a.haute} <span class="discret">minutes d'attente</span></div>`}
       ${a.elargie ? '<p class="discret">Fourchette élargie : un incident récent perturbe le débit.</p>' : ''}
       <p class="discret">${a.devant} personne(s) devant vous si vous vous inscrivez maintenant.</p>
       ${i.ouvert
@@ -310,6 +316,8 @@ function ecranMonTicket(ticket) {
       <h3>Attente estimée</h3>
       <div class="fourchette">${ticket.estimation.basse}–${ticket.estimation.haute} <span class="discret">min</span></div>
       <p class="discret">Passage prévu vers ${ticket.heurePrevisionnelle}.</p>
+      <p class="discret">Dont environ ${ticket.estimation.minutesVirtuelle} min à profiter du parc,
+        puis ${ticket.estimation.minutesFileReelle} min devant l'attraction.</p>
       ${ticket.resteGarantieMin !== null
         ? `<p class="discret">Garantie : ${ticket.resteGarantieMin} min restantes sur votre engagement.</p>` : ''}
       ${ticket.geleParPause
@@ -321,6 +329,8 @@ function ecranMonTicket(ticket) {
       <h3>Votre code d'accès</h3>
       <p class="discret">Il s'activera automatiquement dès que nous vous convoquerons.
       Inutile de rester sur l'application : nous vous envoyons un e-mail.</p>
+      <p class="discret">Il servira deux fois : à votre arrivée devant l'attraction,
+      puis au moment d'entrer dans la salle.</p>
       <button class="sobre large" data-action="desister">Quitter la file</button>
     </div>
     ${blocEtatFile()}`;
@@ -331,23 +341,54 @@ function ecranConvocation(ticket) {
   const urgence = restant.sec <= 120 ? 'urgence' : '';
   return `<div class="convocation"><div class="contenu">
       <h1>C'est votre tour</h1>
-      <p class="discret">Présentez-vous à l'entrée de la Salle du Temps.</p>
-      <div class="chiffre ${urgence}">${restant.texte}<span class="unite"> avant expiration</span></div>
+      <p class="discret">Rejoignez la file d'attente située devant la Salle du Temps
+      et faites scanner ce code à votre arrivée.</p>
+      <div class="chiffre ${urgence}">${restant.texte}<span class="unite"> pour arriver sur place</span></div>
       ${restant.grace ? '<div class="message info">Délai dépassé — vous êtes dans le délai de grâce.</div>' : ''}
       ${ticket.geleParPause ? '<div class="message info">Compteur gelé : attraction en pause.</div>' : ''}
       <div class="bloc"><div id="qr"></div>
         <p class="code-secours" id="code-secours">Préparation du code…</p>
         <p class="discret">Code renouvelé toutes les 30 secondes. Une capture d'écran ne fonctionne pas.</p>
       </div>
+      <div class="message info">Le décompte s'arrête dès que l'agent a scanné votre arrivée.
+        Vous attendrez ensuite sur place qu'une place se libère dans la salle
+        (${ticket.devantFileReelle} personne(s) devant vous, ${ticket.placesSalle} place(s) libre(s)).</div>
       <p class="discret">L'agent contrôlera aussi votre pièce d'identité.</p>
       <button class="sobre" data-action="desister">Je ne peux pas venir</button>
     </div></div>`;
 }
 
+/**
+ * Etage 2 : le visiteur est arrive, il patiente devant l'attraction. Plus aucun
+ * compte a rebours : il est la, il ne peut plus etre declare absent. Le seul
+ * chiffre qui compte devient le nombre de personnes devant lui.
+ */
+function ecranFileReelle(ticket) {
+  const salle = ticket.salle;
+  return `<div class="convocation"><div class="contenu">
+      <h1>Vous êtes dans la file</h1>
+      <p class="discret">Arrivée enregistrée à ${ticket.heureArrivee}. Gardez votre code
+      affiché : l'agent le scannera une seconde fois pour vous faire entrer.</p>
+      <div class="chiffre">${ticket.devantFileReelle}<span class="unite"> personne(s) devant vous</span></div>
+      <p class="discret">Entrée estimée vers ${ticket.heurePrevisionnelle}
+        (${ticket.estimation.basse}–${ticket.estimation.haute} min).</p>
+      ${salle.pleine
+        ? `<div class="message info">La salle est pleine (${salle.occupation}/${salle.capacite}).
+           Les entrées reprennent dès que des visiteurs en sortent.</div>`
+        : `<div class="message succes">${salle.capacite - salle.occupation} place(s) libre(s) dans la salle.</div>`}
+      ${ticket.geleParPause ? '<div class="message info">Attraction en pause. Votre place est conservée.</div>' : ''}
+      <div class="bloc"><div id="qr"></div>
+        <p class="code-secours" id="code-secours">Préparation du code…</p>
+        <p class="discret">Code renouvelé toutes les 30 secondes.</p>
+      </div>
+      <button class="sobre" data-action="desister">Quitter la file</button>
+    </div></div>`;
+}
+
 function ecranFinParcours(ticket) {
   const textes = {
-    ENTRE: ['Bon voyage dans le temps', 'Votre entrée a été validée. Merci d\'avoir utilisé la file virtuelle.'],
-    EXPIRE: ['Convocation expirée', 'Vous ne vous êtes pas présenté à temps. Vous pouvez vous réinscrire en fin de file.'],
+    ENTRE: ['Bon voyage dans le temps', 'Votre entrée a été validée. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc.'],
+    EXPIRE: ['Convocation expirée', "Vous n'avez pas rejoint la file de l'attraction à temps. Vous pouvez vous réinscrire en fin de file."],
     ANNULE: ['Vous avez quitte la file', 'Votre place a été libérée. Vous pouvez vous réinscrire quand vous voulez.'],
     RETIRE: ['Ticket retiré par un agent', ticket.motif || 'Un agent a retiré votre ticket.'],
     PURGE: ['Attraction fermée', ticket.motif || 'L\'attraction a fermé pour la journée.'],
@@ -366,16 +407,20 @@ function ecranFinParcours(ticket) {
 
 function blocEtatFile() {
   const v = S.vue;
-  const pct = Math.min(100, Math.round((v.capteur.occupation / v.capteur.capacite) * 100));
+  const pctSalle = Math.min(100, Math.round((v.salle.occupation / v.salle.capacite) * 100));
+  const pctFile = Math.min(100, Math.round((v.fileReelle.occupation / v.fileReelle.capacite) * 100));
   return `<div class="bloc">
       <h3>L'attraction en direct</h3>
       <div class="indicateurs">
-        <div class="indicateur"><div class="valeur">${v.compteurs.enAttente}</div><div class="titre">dans la file</div></div>
-        <div class="indicateur"><div class="valeur">${v.compteurs.entres}</div><div class="titre">entrés aujourd'hui</div></div>
-        <div class="indicateur"><div class="valeur">${v.cycle.minutesAvantProchain}<span class="titre"> min</span></div><div class="titre">avant le prochain cycle</div></div>
+        <div class="indicateur"><div class="valeur">${v.compteurs.enAttente}</div><div class="titre">dans la file virtuelle</div></div>
+        <div class="indicateur"><div class="valeur">${v.fileReelle.presents}</div><div class="titre">devant l'attraction</div></div>
+        <div class="indicateur"><div class="valeur">${v.compteurs.entres}</div><div class="titre">entrées aujourd'hui</div></div>
       </div>
-      <div class="jauge ${pct >= 90 ? 'pleine' : ''}"><span style="width:${pct}%"></span></div>
-      <small>Salle d'attente : ${v.capteur.occupation} personnes sur ${v.capteur.capacite} places (source ${v.capteur.source}).</small>
+      <p class="discret" style="margin-top:12px">Salle du Temps : ${v.salle.occupation} / ${v.salle.capacite} places</p>
+      <div class="jauge ${pctSalle >= 90 ? 'pleine' : ''}"><span style="width:${pctSalle}%"></span></div>
+      <p class="discret" style="margin-top:10px">File d'attente sur place : ${v.fileReelle.occupation} / ${v.fileReelle.capacite}</p>
+      <div class="jauge ${pctFile >= 90 ? 'pleine' : ''}"><span style="width:${pctFile}%"></span></div>
+      <small>Comptage de la salle : ${v.salle.source}.</small>
     </div>`;
 }
 
@@ -384,9 +429,16 @@ function blocInfos() {
   return `<div class="bloc">
       <h3>Horaires</h3>
       <p>Inscriptions dès ${v.file.ouvertureFile}. Exploitation de ${v.file.debutExploitation} à ${v.file.finExploitation}.</p>
+      <h3>Comment ça marche</h3>
+      <p>Vous prenez votre rang depuis votre téléphone et vous profitez du parc. Quand
+      votre tour approche, nous vous appelons : vous avez alors ${v.delais.convocationMin} minutes
+      pour rejoindre la file d'attente installée devant l'attraction, qui accueille
+      ${v.fileReelle.capacite} personnes. Un agent y scanne votre code à l'arrivée, puis une
+      seconde fois pour vous faire entrer dès qu'une place se libère.</p>
       <h3>Capacité</h3>
-      <p>${v.cycle.placesParCycle} visiteurs par cycle, soit ${v.cycle.debitNominal} personnes par heure.
-      La salle d'attente accueille ${v.capteur.capacite} personnes au maximum.</p>
+      <p>La Salle du Temps accueille ${v.salle.capacite} personnes. Chacun en sort quand il le
+      souhaite ; le séjour dure ${v.salle.dureeSejourMoyenneMin} minutes en moyenne, soit environ
+      ${v.salle.debitNominal} entrées par heure.</p>
       <h3>Accès</h3>
       <p>La Salle du Temps soumet le corps à une forte pesanteur. L'accès est refusé
       aux personnes ayant déclaré ne pas être aptes.</p>
@@ -398,7 +450,7 @@ function blocRegles() {
   const lignes = Object.entries(v.statuts).map(([code, s]) => `<tr>
       <td><span class="etiquette ${code}">${echapper(s.libelle)}</span></td>
       <td>${s.garantieMin === null ? 'Ordre d\'arrivée' : s.garantieMin === 0 ? 'Accès immédiat' : `${s.garantieMin} min garanties`}</td>
-      <td class="discret">${Math.round(s.quotaCycle * 100)} % des places au maximum${s.partMin ? `, ${Math.round(s.partMin * 100)} % réservées` : ''}</td>
+      <td class="discret">${Math.round(s.quotaFenetre * 100)} % des convocations au maximum${s.partMin ? `, ${Math.round(s.partMin * 100)} % réservées` : ''}</td>
     </tr>`).join('');
   return `<div class="bloc">
       <h3>Les trois statuts</h3>
@@ -442,46 +494,90 @@ function ecranAgent() {
   return onglets + blocScan();
 }
 
+/**
+ * Le poste de l'agent. Les deux chiffres qui commandent tout son travail sont
+ * en haut, en gros : combien de personnes dans la salle, combien devant la
+ * porte. Le reste de l'ecran ne sert qu'a scanner.
+ */
 function blocScan() {
   const s = S.scan;
+  const v = S.vue;
+  const mots = { ACCEPTE: 'Entrée autorisée', ARRIVEE: 'Arrivée enregistrée', REFUSE: 'Refusé' };
+  const pct = v ? Math.min(100, Math.round((v.salle.occupation / v.salle.capacite) * 100)) : 0;
+
   return `
+    ${v ? `<div class="bloc ${v.salle.pleine ? 'danger' : 'accent'}">
+        <h3>Salle du Temps</h3>
+        <div class="chiffre ${v.salle.pleine ? 'urgence' : ''}">${v.salle.occupation}<span class="unite"> / ${v.salle.capacite} places</span></div>
+        <div class="jauge ${pct >= 90 ? 'pleine' : ''}"><span style="width:${pct}%"></span></div>
+        <p class="discret">${v.salle.pleine
+          ? 'Salle pleine : aucune entrée possible tant que personne n\'en sort.'
+          : `${v.salle.places} place(s) libre(s) — vous pouvez faire entrer ${v.salle.places} visiteur(s).`}
+          Comptage : ${echapper(v.salle.source)}${v.salle.age !== null ? `, il y a ${v.salle.age} s` : ''}.</p>
+        <p class="discret">File devant l'attraction : ${v.fileReelle.presents} présent(s)
+          ${v.fileReelle.enRoute ? `, ${v.fileReelle.enRoute} en route` : ''}
+          — ${v.fileReelle.occupation} / ${v.fileReelle.capacite} places.</p>
+      </div>` : ''}
     ${s ? `<div class="verdict ${s.verdict}">
-        <div class="mot">${s.verdict === 'ACCEPTE' ? 'Entrée autorisée' : 'Entrée refusée'}</div>
+        <div class="mot">${mots[s.verdict] || s.verdict}</div>
         ${s.visiteur ? `<p>${echapper(s.visiteur.prenom)} ${echapper(s.visiteur.initiale)}. —
           ${echapper(S.vue?.statuts?.[s.visiteur.statut]?.libelle || s.visiteur.statut)}.
-          Contrôlez la pièce d'identité avant de laisser entrer.</p>` : ''}
+          ${s.verdict === 'ACCEPTE' ? 'Contrôlez la pièce d\'identité avant de laisser entrer.' : ''}</p>` : ''}
         ${s.motif ? `<p>${echapper(s.motif)}</p>` : ''}
+        ${s.placeConservee ? '<p>Le code n\'est pas consommé : rescannez dès qu\'une place se libère.</p>' : ''}
       </div>` : ''}
     <div class="bloc">
       <h3>Scanner un code</h3>
+      <p class="discret">Le même code sert deux fois : une fois à l'arrivée du visiteur
+      dans la file, une fois pour le faire entrer. Le système reconnaît de
+      lui-même l'étape ; les deux boutons ci-dessous ne servent qu'à la forcer.</p>
       <label for="jeton">Code du visiteur (caméra ou saisie manuelle)</label>
       <input id="jeton" type="text" placeholder="tk_xxxxxxxx.xxxxxxx.xxxxxxxxxxxx" autocomplete="off">
       <div class="ligne">
-        <button class="principal" data-action="scanner">Valider l'entrée</button>
+        <button class="principal" data-action="scanner">Scanner</button>
         <button class="sobre" data-action="camera">Utiliser la caméra</button>
+      </div>
+      <div class="ligne">
+        <button class="sobre" data-action="scanner" data-etape="ARRIVEE">Forcer : arrivée en file</button>
+        <button class="sobre" data-action="scanner" data-etape="ENTREE">Forcer : entrée en salle</button>
       </div>
       <video id="video" playsinline style="display:none;width:100%;border-radius:8px;margin-top:10px"></video>
       <p class="discret">Le code tourne toutes les 30 secondes : une capture d'écran est refusée.</p>
     </div>`;
 }
 
+const ZONES = {
+  FILE_REELLE: ['FILE_REELLE', 'devant l\'attraction'],
+  EN_ROUTE: ['CONVOQUE', 'en route'],
+  VIRTUELLE: ['', 'dans le parc'],
+};
+
 function blocFileAgent() {
+  const etatLisible = (t) => {
+    if (t.zone === 'FILE_REELLE') return `arrivé à ${t.heureArrivee} · ${t.attenteFileReelleMin} min sur place`;
+    if (t.zone === 'EN_ROUTE') return `convoqué · ${t.resteConvocationSec}s pour arriver`;
+    return 'en attente dans le parc';
+  };
+
   const lignes = (S.agent?.file || []).map((t) => `<tr>
       <td>${t.position}</td>
+      <td><span class="etiquette ${ZONES[t.zone]?.[0] || ''}">${ZONES[t.zone]?.[1] || t.zone}</span></td>
       <td><span class="etiquette ${t.statut}">${echapper(t.libelleStatut)}</span></td>
       <td>${echapper(t.visiteur)}</td>
       <td class="discret">${t.heureInscription}</td>
-      <td>${t.etat === 'CONVOQUE' ? `<span class="etiquette CONVOQUE">convoqué · ${t.resteConvocationSec}s</span>` : 'en attente'}</td>
+      <td class="discret">${etatLisible(t)}</td>
       <td class="discret">${t.resteGarantieMin === null ? '—' : `${t.resteGarantieMin} min`}</td>
       <td><button class="sobre" data-action="retirer" data-id="${t.id}">Retirer</button></td>
     </tr>`).join('');
 
   return `<div class="bloc">
       <h3>File en cours</h3>
-      <p class="discret">Aucun bouton d'ajout : la file ne s'alimente que par les inscriptions des visiteurs.</p>
+      <p class="discret">Dans l'ordre où vous les rencontrerez : d'abord ceux qui patientent
+      devant l'attraction, puis ceux qui s'y rendent, puis la file virtuelle.
+      Aucun bouton d'ajout : la file ne s'alimente que par les inscriptions des visiteurs.</p>
       <div class="defilant"><table>
-        <thead><tr><th>#</th><th>Statut</th><th>Visiteur</th><th>Inscrit</th><th>État</th><th>Garantie</th><th></th></tr></thead>
-        <tbody>${lignes || '<tr><td colspan="7" class="vide-liste">File vide.</td></tr>'}</tbody>
+        <thead><tr><th>#</th><th>Où</th><th>Statut</th><th>Visiteur</th><th>Inscrit</th><th>État</th><th>Garantie</th><th></th></tr></thead>
+        <tbody>${lignes || '<tr><td colspan="8" class="vide-liste">File vide.</td></tr>'}</tbody>
       </table></div>
     </div>`;
 }
@@ -510,7 +606,8 @@ function blocIncidents() {
       <button class="sobre" data-action="incidents-charger">Actualiser</button>
       <div class="defilant"><table><tbody>
         ${(S.incidents?.scans || []).map((s) => `<tr>
-          <td>${echapper(s.verdict)}</td><td class="discret">${echapper(s.motif || '')}</td>
+          <td>${echapper(s.verdict)}</td><td class="discret">${echapper(s.etape || '')}</td>
+          <td class="discret">${echapper(s.motif || '')}</td>
           <td class="discret">${echapper(s.ticketId || '')}</td></tr>`).join('')
           || '<tr><td class="vide-liste">Aucun scan enregistré.</td></tr>'}
       </tbody></table></div>
@@ -540,11 +637,14 @@ function blocApercu() {
   return `<div class="indicateurs">
       ${ind(m.totaux.enAttente, 'dans la file')}
       ${ind(m.totaux.entres, 'entrées validées')}
-      ${ind(`${m.remplissage.attractionPct} %`, 'remplissage attraction')}
+      ${ind(m.totaux.enFileReelle, 'devant l\'attraction')}
       ${ind(`${m.remplissage.sallePct} %`, 'remplissage salle')}
+      ${ind(`${m.remplissage.fileReellePct} %`, 'remplissage file réelle')}
+      ${ind(`${m.fileReelle.sejourMoyenMin} min`, 'attente moyenne sur place')}
       ${ind(`${m.garantieSaiyanPct} %`, 'garantie Saiyan tenue')}
       ${ind(`${m.ecartAnnonceReelPct} %`, 'écart annoncé / réel')}
       ${ind(`${m.absences.tauxPct} %`, 'absences à la convocation')}
+      ${ind(m.fileReelle.refusSallePleine, 'scans refusés salle pleine')}
       ${ind(m.finDeJournee.ticketsNonServis, 'non servis à la fermeture')}
       ${ind(`${m.finDeJournee.tauxDesistementPct} %`, 'désistements')}
       ${ind(`${m.incidents.dureeCumuleeMin} min`, `indisponibilité (${m.incidents.nombre} incidents)`)}
@@ -575,31 +675,45 @@ function blocAttentes() {
 
 function blocAffluence() {
   const v = S.vue;
-  const pct = Math.min(100, Math.round((v.capteur.occupation / v.capteur.capacite) * 100));
+  const pctSalle = Math.min(100, Math.round((v.salle.occupation / v.salle.capacite) * 100));
+  const pctFile = Math.min(100, Math.round((v.fileReelle.occupation / v.fileReelle.capacite) * 100));
   return `<div class="bloc">
-      <h3>Capteur de la salle d'attente</h3>
-      <div class="chiffre">${v.capteur.occupation}<span class="unite"> / ${v.capteur.capacite} places</span></div>
-      <div class="jauge ${pct >= 90 ? 'pleine' : ''}"><span style="width:${pct}%"></span></div>
-      <p class="discret">Source : ${echapper(v.capteur.source)} · relevé il y a ${v.capteur.age ?? '?'} s
-        ${v.capteur.erreur ? ` · erreur : ${echapper(v.capteur.erreur)}` : ''}</p>
+      <h3>Capteur de la Salle du Temps</h3>
+      <div class="chiffre">${v.salle.occupation}<span class="unite"> / ${v.salle.capacite} places</span></div>
+      <div class="jauge ${pctSalle >= 90 ? 'pleine' : ''}"><span style="width:${pctSalle}%"></span></div>
+      <p class="discret">Source : ${echapper(v.salle.source)} · relevé il y a ${v.salle.age ?? '?'} s
+        ${v.salle.erreur ? ` · erreur : ${echapper(v.salle.erreur)}` : ''}</p>
+      <p class="discret">Les visiteurs sortent quand ils le souhaitent : le capteur est la seule
+      source qui sache combien de personnes se trouvent réellement dans la salle.</p>
       <label for="occupation">Forcer l'occupation (démonstration ; vide = capteur réel)</label>
-      <input id="occupation" type="number" min="0" placeholder="ex. 48">
+      <input id="occupation" type="number" min="0" placeholder="ex. 50">
       <button class="sobre" data-action="capteur">Appliquer</button>
     </div>
     <div class="bloc">
-      <h3>Cycle en cours</h3>
-      <p>Cycle n°${v.cycle.index} — ${v.cycle.placesConsommees} / ${v.cycle.placesParCycle} places consommées,
-      prochain cycle dans ${v.cycle.minutesAvantProchain} min.</p>
-      <p class="discret">Débit nominal : ${v.cycle.debitNominal} visiteurs par heure.</p>
+      <h3>File d'attente devant l'attraction</h3>
+      <div class="chiffre">${v.fileReelle.occupation}<span class="unite"> / ${v.fileReelle.capacite} places</span></div>
+      <div class="jauge ${pctFile >= 90 ? 'pleine' : ''}"><span style="width:${pctFile}%"></span></div>
+      <p class="discret">${v.fileReelle.presents} personne(s) sur place, ${v.fileReelle.enRoute} en route.
+      L'ordonnanceur convoque tant qu'il reste des places, et s'arrête à ${v.fileReelle.capacite}.</p>
+    </div>
+    <div class="bloc">
+      <h3>Débit</h3>
+      <p>${v.salle.capacite} places libérées toutes les ${v.salle.dureeSejourMoyenneMin} minutes en moyenne,
+      soit un débit nominal de ${v.salle.debitNominal} visiteurs par heure.</p>
+      <p class="discret">Il n'y a ni cycle ni fournée : la salle fonctionne en flux continu.
+      Le débit réellement observé sur les 30 dernières minutes corrige cette hypothèse
+      dans l'estimation affichée aux visiteurs.</p>
     </div>`;
 }
 
 /** Champs de reglage exposes au parametrage a chaud (RG-15 / F-16). */
 const CHAMPS_REGLES = [
-  ['dureeCycleMin', 'Durée d\'un cycle (min)'],
-  ['placesParCycle', 'Places par cycle'],
-  ['capaciteSalleAttente', 'Capacité salle d\'attente'],
-  ['delaiConvocationSec', 'Délai de convocation (s)'],
+  ['capaciteSalle', 'Capacité de la Salle du Temps'],
+  ['capaciteFileReelle', 'Capacité de la file réelle'],
+  ['dureeSejourMoyenneMin', 'Durée moyenne de séjour (min)'],
+  ['fenetreQuotaConvocations', 'Fenêtre des quotas (convocations)'],
+  ['horizonUrgenceMin', 'Horizon d\'urgence des garanties (min)'],
+  ['delaiConvocationSec', 'Délai pour rejoindre la file réelle (s)'],
   ['delaiGraceSec', 'Délai de grâce (s)'],
   ['rappelAvantFinSec', 'Rappel avant expiration (s)'],
   ['margeSecuriteMin', 'Marge de sécurité (min)'],
@@ -618,8 +732,10 @@ function blocReglesAdmin() {
     <input id="r-${cle}" data-regle="${cle}" value="${echapper(r[cle])}"></div>`).join('');
 
   const quotas = Object.entries(r.statuts).map(([code, s]) => `
-    <div><label for="q-${code}">${echapper(s.libelle)} — quota max par cycle (%)</label>
-    <input id="q-${code}" data-quota="${code}" type="number" value="${Math.round(s.quotaCycle * 100)}"></div>`).join('');
+    <div><label for="q-${code}">${echapper(s.libelle)} — part maximale des ${r.fenetreQuotaConvocations} dernières convocations (%)</label>
+    <input id="q-${code}" data-quota="${code}" type="number" value="${Math.round(s.quotaFenetre * 100)}"></div>
+    <div><label for="p-${code}">${echapper(s.libelle)} — part minimale réservée (%)</label>
+    <input id="p-${code}" data-part="${code}" type="number" value="${Math.round((s.partMin || 0) * 100)}"></div>`).join('');
 
   return `<div class="bloc">
       <h3>Paramètres d'exploitation</h3>
@@ -629,8 +745,8 @@ function blocReglesAdmin() {
     </div>
     <div class="bloc">
       <h3>Horloge de démonstration</h3>
-      <p class="discret">Pour montrer l'ouverture de 8h, un cycle complet ou la fermeture de 19h
-      sans attendre la journée entière.</p>
+      <p class="discret">Pour montrer l'ouverture de 8h, un parcours complet ou la fermeture
+      de 19h sans attendre la journée entière.</p>
       <div class="ligne">
         <div><label for="heure">Heure</label><input id="heure" type="time" value="${S.vue.horloge.heure}"></div>
         <div><label for="vitesse">Vitesse</label><input id="vitesse" type="number" value="${S.vue.horloge.vitesse}"></div>
@@ -642,9 +758,14 @@ function blocReglesAdmin() {
     </div>
     <div class="bloc">
       <h3>Jeu de données</h3>
-      <label for="nombre">Nombre de visiteurs fictifs à inscrire</label>
-      <input id="nombre" type="number" value="24">
-      <button class="sobre" data-action="seed">Peupler la file</button>
+      <p class="discret">Les visiteurs suivent le vrai parcours : inscription, convocation,
+      scan d'arrivée, scan d'entrée. Rien n'est écrit directement dans le journal.</p>
+      <div class="ligne">
+        <div><label for="nombre">Inscrits</label><input id="nombre" type="number" value="24"></div>
+        <div><label for="arrivees">Dont arrivés en file réelle</label><input id="arrivees" type="number" value="12"></div>
+        <div><label for="entrees">Dont entrés en salle</label><input id="entrees" type="number" value="6"></div>
+      </div>
+      <button class="sobre" data-action="seed">Peupler les trois étages</button>
     </div>`;
 }
 
@@ -690,7 +811,7 @@ let cacheJeton = { jeton: null, expireA: 0 };
 
 async function dessinerQr() {
   const boite = document.getElementById('qr');
-  if (!boite || !S.moi?.ticket || S.moi.ticket.etat !== 'CONVOQUE') {
+  if (!boite || !['CONVOQUE', 'EN_FILE_REELLE'].includes(S.moi?.ticket?.etat)) {
     cacheJeton = { jeton: null, expireA: 0 };
     return;
   }
@@ -791,8 +912,14 @@ async function executer(action, data) {
 
     case 'scanner': {
       try {
-        S.scan = await api('POST', '/api/agent/scans', { jeton: valeur('jeton') });
-        document.getElementById('jeton').value = '';
+        S.scan = await api('POST', '/api/agent/scans', {
+          jeton: valeur('jeton'),
+          etape: data.etape || 'AUTO',   // sans precision, le serveur deduit l'etape
+        });
+        // Apres une arrivee enregistree, le code resservira pour l'entree : on
+        // le laisse dans le champ pour que l'agent n'ait qu'a rescanner.
+        const champ = document.getElementById('jeton');
+        if (champ && S.scan.verdict !== 'ARRIVEE') champ.value = '';
         return rafraichir();
       } catch (e) { return annoncer(e.message, 'erreur'); }
     }
@@ -838,7 +965,10 @@ async function executer(action, data) {
       document.querySelectorAll('[data-regle]').forEach((i) => { patch[i.dataset.regle] = i.value; });
       const statuts = {};
       document.querySelectorAll('[data-quota]').forEach((i) => {
-        statuts[i.dataset.quota] = { quotaCycle: Number(i.value) / 100 };
+        statuts[i.dataset.quota] = { ...statuts[i.dataset.quota], quotaFenetre: Number(i.value) / 100 };
+      });
+      document.querySelectorAll('[data-part]').forEach((i) => {
+        statuts[i.dataset.part] = { ...statuts[i.dataset.part], partMin: Number(i.value) / 100 };
       });
       patch.statuts = statuts;
       return agir(() => api('PUT', '/api/admin/config/rules', patch), 'Règles appliquées immédiatement.');
@@ -852,7 +982,11 @@ async function executer(action, data) {
       return agir(() => api('POST', '/api/admin/clock', { reel: true }), 'Retour au temps réel.');
 
     case 'seed':
-      return agir(() => api('POST', '/api/admin/seed', { nombre: Number(valeur('nombre')) }), 'File peuplée.');
+      return agir(() => api('POST', '/api/admin/seed', {
+        nombre: Number(valeur('nombre')),
+        arrivees: Number(valeur('arrivees')),
+        entrees: Number(valeur('entrees')),
+      }), 'File peuplée.');
   }
 }
 
@@ -902,6 +1036,9 @@ rafraichir();
 
 // Compte a rebours : seul rafraichissement a la seconde, et uniquement quand un
 // ticket est convoque. Le reste de l'interface suit le rythme du serveur.
+// Seul l'etat CONVOQUE a un compte a rebours. Une fois dans la file reelle, le
+// visiteur est arrive : il n'y a plus rien a decompter, et surtout plus rien
+// qui puisse lui faire perdre sa place.
 setInterval(() => {
   if (S.role === 'visiteur' && S.moi?.ticket?.etat === 'CONVOQUE') rendre();
 }, 1000);

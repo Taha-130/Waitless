@@ -1,143 +1,248 @@
 /**
  * ---------------------------------------------------------------------------
- * REGLES METIER PARAMETRABLES
+ * REGLES D'EXPLOITATION
  * ---------------------------------------------------------------------------
- * Couvre RG-15 et F-16 : « tous les seuils sont modifiables depuis le tableau
- * de bord, sans redeploiement ».
+ * Toutes les valeurs chiffrees du metier sont ici, et NULLE PART ailleurs :
+ * aucun nombre magique dans le domaine. C'est ce qui rend RG-15 / F-16
+ * realisable (« modifier les seuils sans redeploiement ») : l'ecran
+ * d'administration ecrit dans cet objet a travers un evenement
+ * REGLES_MODIFIEES, et le domaine lit `state.regles` a chaque decision.
  *
- * Ce fichier ne contient QUE des valeurs par defaut et leurs bornes de
- * validite. Les valeurs reellement utilisees a l'execution vivent dans l'etat
- * du systeme (voir src/domain/state.js) et sont modifiees par l'evenement
- * REGLES_MODIFIEES. Redemarrer le serveur rejoue cet evenement : la
- * configuration survit donc a un arret.
+ * ---------------------------------------------------------------------------
+ * LE MODELE D'ATTENTE, EN TROIS ETAGES
+ * ---------------------------------------------------------------------------
+ *
+ *   1. FILE VIRTUELLE   nombre illimite. On y prend son rang depuis son
+ *                       telephone, puis on profite du parc.
+ *
+ *   2. FILE REELLE      `capaciteFileReelle` personnes au maximum (30), juste
+ *                       devant l'attraction. On y est CONVOQUE, on s'y rend,
+ *                       et l'agent enregistre l'arrivee au premier scan.
+ *
+ *   3. SALLE DU TEMPS   `capaciteSalle` personnes au maximum (50). L'agent y
+ *                       fait entrer la file reelle au second scan, au rythme
+ *                       des places qui se liberent. On en sort quand on veut :
+ *                       c'est le CAPTEUR, et lui seul, qui dit combien de
+ *                       personnes s'y trouvent.
+ *
+ * Consequence directe sur le parametrage : il n'y a ni cycle, ni fournee. Le
+ * debit n'est pas decrete, il se deduit de la capacite de la salle et de la
+ * duree moyenne de sejour, puis se recale sur les entrees reellement observees.
  * ---------------------------------------------------------------------------
  */
-
-/** Codes des trois statuts de priorite. Le rang 1 est le plus prioritaire. */
-export const STATUTS = ['SUPER_SAIYAN', 'SAIYAN', 'HUMAIN'];
 
 export const REGLES_PAR_DEFAUT = {
-  // --- Horaires (en minutes depuis minuit) ------------------------------
-  ouvertureFile: 8 * 60,        // RG-01 : la file virtuelle ouvre avec le parc
-  debutExploitation: 9 * 60,    // RG-01 : premiere convocation possible
-  finExploitation: 19 * 60,     // RG-01 : plus aucune convocation apres
+  /* --- Capacites ------------------------------------------------------- */
 
-  // --- Capacite de l'attraction -----------------------------------------
-  dureeCycleMin: 20,            // un cycle de la Salle du Temps
-  placesParCycle: 20,           // 20 visiteurs par cycle => 60/heure
-  capaciteSalleAttente: 50,     // F-14 : la salle physique ne depasse pas 50
+  /** Capacite de la Salle du Temps. C'est ce que compte le capteur. */
+  capaciteSalle: 50,
 
-  // --- Convocation (RG-09) ----------------------------------------------
-  delaiConvocationSec: 600,     // 10 minutes pour se presenter
-  delaiGraceSec: 45,            // tolerance paramétrable de 30 a 60 s
-  rappelAvantFinSec: 120,       // rappel 2 minutes avant l'expiration
+  /** Capacite de la file d'attente physique, juste devant l'attraction. */
+  capaciteFileReelle: 30,
 
-  // --- Fermeture des inscriptions (RG-04 / RG-05) -----------------------
-  margeSecuriteMin: 10,         // marge retranchee a l'heure de fermeture
-  seuilVigilanceMin: 15,        // sous ce reliquat, on avertit les derniers
+  /**
+   * Duree moyenne de presence dans la salle, en minutes. Les visiteurs sortent
+   * quand ils veulent : cette valeur n'est donc pas une regle imposee mais une
+   * hypothese de debit, que l'estimateur corrige avec les entrees observees.
+   */
+  dureeSejourMoyenneMin: 20,
 
-  // --- Estimation de l'attente ------------------------------------------
-  facteurFourchetteBasse: 0.85, // borne basse de la fourchette affichee
-  facteurFourchetteHaute: 1.25, // borne haute
-  elargissementIncident: 1.6,   // la fourchette s'elargit apres un incident
-  attenteMaxAffichableMin: 300, // garde-fou : on n'annonce jamais plus
+  /* --- Delais de convocation (RG-09, RG-10) ---------------------------- */
 
-  // --- Statuts de priorite (referentiel configurable) -------------------
-  // quotaCycle : part MAXIMALE des places d'un cycle (RG-06, RG-07)
-  // partMin    : part MINIMALE reservee, evite la famine (RG-08)
-  // garantieMin: attente garantie en minutes, null = pas de garantie
+  /** Temps laisse au visiteur pour REJOINDRE LA FILE REELLE apres l'appel. */
+  delaiConvocationSec: 600,       // 10 min
+  /** Tolerance supplementaire avant expiration. */
+  delaiGraceSec: 120,             // 2 min
+  /** Rappel envoye tant de secondes avant la fin du delai. */
+  rappelAvantFinSec: 120,
+  /** Duree de validite d'un jeton QR (rotation). */
+  validiteJetonQrSec: 30,
+
+  /* --- Horaires, en minutes depuis minuit (RG-01) ----------------------- */
+
+  ouvertureFile: 8 * 60,          // 08h00 : ouverture des inscriptions
+  debutExploitation: 9 * 60,      // 09h00 : premieres convocations
+  finExploitation: 19 * 60,       // 19h00 : derniere entree
+
+  /** RG-04 : fermeture des inscriptions = fin - attente estimee - cette marge. */
+  margeSecuriteMin: 15,
+  /** RG-05 : en deca de ce reste, on avertit les visiteurs menaces. */
+  seuilVigilanceMin: 30,
+
+  /* --- Priorites (RG-06, RG-07, RG-08) --------------------------------- */
+
+  /**
+   * Les quotas ne peuvent plus s'exprimer « par cycle » : il n'y a plus de
+   * cycle. Ils s'appliquent donc a une FENETRE GLISSANTE des dernieres
+   * convocations. Dire « 15 % maximum » signifie desormais : sur les
+   * `fenetreQuotaConvocations` dernieres convocations, pas plus de 15 % de
+   * Super Saiyans. La contrainte est equivalente, et elle est continue.
+   */
+  fenetreQuotaConvocations: 50,
+
+  /** Marge, en minutes, en deca de laquelle une garantie devient urgente. */
+  horizonUrgenceMin: 5,
+
   statuts: {
-    SUPER_SAIYAN: { libelle: 'Super Saiyan', rang: 1, quotaCycle: 0.15, partMin: 0, garantieMin: 0 },
-    SAIYAN: { libelle: 'Saiyan', rang: 2, quotaCycle: 0.35, partMin: 0, garantieMin: 30 },
-    HUMAIN: { libelle: 'Humain', rang: 3, quotaCycle: 1.0, partMin: 0.5, garantieMin: null },
+    SUPER_SAIYAN: {
+      libelle: 'Super Saiyan',
+      rang: 0,                    // passe devant tout le monde
+      garantieMin: 0,             // acces immediat
+      quotaFenetre: 0.15,         // RG-06 : 15 % des convocations au maximum
+      partMin: 0,
+    },
+    SAIYAN: {
+      libelle: 'Saiyan',
+      rang: 1,
+      garantieMin: 30,            // RG-07 : 30 min garanties jusqu'a la convocation
+      quotaFenetre: 0.35,
+      partMin: 0,
+    },
+    HUMAIN: {
+      libelle: 'Humain',
+      rang: 2,
+      garantieMin: null,          // ordre d'arrivee, sans promesse de delai
+      quotaFenetre: 1,
+      partMin: 0.5,               // RG-08 : la moitie des convocations leur revient
+    },
   },
 
-  // --- Exploitation technique -------------------------------------------
-  periodeTickMs: 5000,          // F-05 : mise a jour en moins de 5 secondes
-  validiteJetonQrSec: 30,       // F-10 : le QR tourne toutes les 30 secondes
-  codeAgent: 'AGENT-2026',      // acces console agent
-  codeAdmin: 'ADMIN-2026',      // acces tableau de bord
-  capteurUrl: '',               // URL du capteur de salle (vide = repli interne)
+  /* --- Estimation ------------------------------------------------------- */
+
+  facteurFourchetteBasse: 0.8,
+  facteurFourchetteHaute: 1.2,
+  elargissementIncident: 1.5,     // fourchette elargie apres un incident
+  attenteMaxAffichableMin: 240,   // on n'annonce jamais plus de 4 h
+
+  /* --- Exploitation technique ------------------------------------------ */
+
+  periodeTickMs: 5000,            // battement de l'ordonnanceur
+  capteurUrl: '',                 // vide = repli sur l'estimation interne
+  codeAgent: 'AGENT-2026',
+  codeAdmin: 'ADMIN-2026',
 };
 
 /**
- * Bornes de validite. Toute modification hors bornes est refusee : un
- * parametre mal saisi ne doit pas pouvoir casser l'exploitation.
+ * Bornes de validite. Toute valeur modifiable a chaud est bornee ici : une
+ * saisie hors bornes est refusee avec un message explicite plutot que
+ * d'entrainer l'exploitation dans un etat absurde (RG-15).
  */
-export const BORNES = {
-  ouvertureFile: [0, 1439],
-  debutExploitation: [0, 1439],
-  finExploitation: [0, 1439],
-  dureeCycleMin: [1, 120],
-  placesParCycle: [1, 200],
-  capaciteSalleAttente: [1, 500],
-  delaiConvocationSec: [60, 3600],
-  delaiGraceSec: [30, 60],
-  rappelAvantFinSec: [0, 1800],
-  margeSecuriteMin: [0, 120],
-  seuilVigilanceMin: [0, 240],
-  facteurFourchetteBasse: [0.5, 1],
-  facteurFourchetteHaute: [1, 2],
-  elargissementIncident: [1, 3],
-  attenteMaxAffichableMin: [30, 1440],
-  periodeTickMs: [1000, 60000],
-  validiteJetonQrSec: [10, 300],
+const BORNES = {
+  capaciteSalle: [1, 500, 'Capacité de la Salle du Temps'],
+  capaciteFileReelle: [1, 200, 'Capacité de la file réelle'],
+  dureeSejourMoyenneMin: [1, 240, 'Durée moyenne de séjour (min)'],
+  delaiConvocationSec: [60, 3600, 'Délai de convocation (s)'],
+  delaiGraceSec: [0, 1800, 'Délai de grâce (s)'],
+  rappelAvantFinSec: [0, 1800, 'Rappel avant expiration (s)'],
+  validiteJetonQrSec: [10, 300, 'Validité du jeton QR (s)'],
+  ouvertureFile: [0, 1439, 'Ouverture des inscriptions'],
+  debutExploitation: [0, 1439, "Début d'exploitation"],
+  finExploitation: [1, 1440, "Fin d'exploitation"],
+  margeSecuriteMin: [0, 120, 'Marge de sécurité (min)'],
+  seuilVigilanceMin: [0, 240, 'Seuil de vigilance (min)'],
+  fenetreQuotaConvocations: [5, 500, 'Fenêtre des quotas (convocations)'],
+  horizonUrgenceMin: [0, 60, "Horizon d'urgence (min)"],
+  facteurFourchetteBasse: [0.1, 1, 'Facteur bas de la fourchette'],
+  facteurFourchetteHaute: [1, 3, 'Facteur haut de la fourchette'],
+  elargissementIncident: [1, 5, 'Élargissement après incident'],
+  attenteMaxAffichableMin: [10, 1440, 'Attente maximale affichable (min)'],
+  periodeTickMs: [500, 60000, "Période de l'ordonnanceur (ms)"],
 };
 
+/** Champs texte acceptes tels quels (pas de borne numerique). */
+const TEXTES = ['capteurUrl', 'codeAgent', 'codeAdmin'];
+
 /**
- * Valide un ensemble de modifications de regles.
- * @returns {{ok: boolean, erreurs: string[], valeurs: object}}
+ * Valide un lot de modifications de regles.
+ *
+ * Les valeurs arrivent du formulaire d'administration, donc sous forme de
+ * chaines : on les convertit ici, une bonne fois, pour que le domaine ne
+ * manipule que des nombres.
+ *
+ * @param {object} patch
+ * @returns {{ok:boolean, erreurs:string[], valeurs:object}}
  */
-export function validerRegles(patch) {
+export function validerRegles(patch = {}) {
   const erreurs = [];
   const valeurs = {};
 
-  for (const [cle, valeur] of Object.entries(patch)) {
-    // Cas particulier : le referentiel des statuts.
-    if (cle === 'statuts') {
-      const statuts = {};
-      for (const code of STATUTS) {
-        const s = valeur?.[code];
-        if (!s) continue;
-        statuts[code] = {
-          ...REGLES_PAR_DEFAUT.statuts[code],
-          ...s,
-          quotaCycle: borner(s.quotaCycle, 0, 1, REGLES_PAR_DEFAUT.statuts[code].quotaCycle),
-          partMin: borner(s.partMin, 0, 1, REGLES_PAR_DEFAUT.statuts[code].partMin),
-        };
-      }
-      valeurs.statuts = statuts;
-      continue;
-    }
-
-    // Chaines libres : pas de bornes numeriques.
-    if (['codeAgent', 'codeAdmin', 'capteurUrl'].includes(cle)) {
-      valeurs[cle] = String(valeur ?? '');
-      continue;
-    }
+  for (const [cle, brut] of Object.entries(patch)) {
+    if (cle === 'statuts') continue;                 // traite plus bas
+    if (TEXTES.includes(cle)) { valeurs[cle] = String(brut ?? ''); continue; }
 
     const borne = BORNES[cle];
-    if (!borne) {
-      erreurs.push(`Paramètre inconnu : ${cle}`);
+    if (!borne) continue;                            // cle inconnue : ignoree
+
+    const [min, max, libelle] = borne;
+    const n = Number(brut);
+    if (!Number.isFinite(n)) {
+      erreurs.push(`${libelle} : valeur non numérique`);
       continue;
     }
-    const nombre = Number(valeur);
-    if (Number.isNaN(nombre)) {
-      erreurs.push(`${cle} doit être un nombre`);
+    if (n < min || n > max) {
+      erreurs.push(`${libelle} : ${n} hors bornes (${min} à ${max})`);
       continue;
     }
-    if (nombre < borne[0] || nombre > borne[1]) {
-      erreurs.push(`${cle} doit être compris entre ${borne[0]} et ${borne[1]}`);
-      continue;
+    valeurs[cle] = n;
+  }
+
+  // Coherence des horaires : l'ordre doit rester ouverture < debut < fin.
+  const fusion = { ...REGLES_PAR_DEFAUT, ...valeurs };
+  if (fusion.ouvertureFile > fusion.debutExploitation) {
+    erreurs.push("Les inscriptions ne peuvent pas ouvrir après le début d'exploitation");
+  }
+  if (fusion.debutExploitation >= fusion.finExploitation) {
+    erreurs.push("La fin d'exploitation doit suivre le début d'exploitation");
+  }
+  if (fusion.facteurFourchetteBasse > fusion.facteurFourchetteHaute) {
+    erreurs.push('La borne basse de la fourchette dépasse la borne haute');
+  }
+  // La file reelle n'a aucun sens si elle est plus grande que la salle : elle
+  // ne se viderait jamais assez vite pour que l'attente annoncee tienne.
+  if (fusion.capaciteFileReelle > fusion.capaciteSalle) {
+    erreurs.push('La file réelle ne peut pas dépasser la capacité de la salle');
+  }
+
+  // Quotas et parts minimales par statut.
+  if (patch.statuts) {
+    const statuts = {};
+    for (const [code, cfg] of Object.entries(patch.statuts)) {
+      if (!REGLES_PAR_DEFAUT.statuts[code]) {
+        erreurs.push(`Statut inconnu : ${code}`);
+        continue;
+      }
+      const sortie = {};
+      for (const champ of ['quotaFenetre', 'partMin']) {
+        if (cfg[champ] === undefined) continue;
+        const n = Number(cfg[champ]);
+        if (!Number.isFinite(n) || n < 0 || n > 1) {
+          erreurs.push(`${code} · ${champ} : doit être une part entre 0 et 1`);
+          continue;
+        }
+        sortie[champ] = n;
+      }
+      if (cfg.garantieMin !== undefined) {
+        const n = cfg.garantieMin === null || cfg.garantieMin === '' ? null : Number(cfg.garantieMin);
+        if (n !== null && (!Number.isFinite(n) || n < 0 || n > 480)) {
+          erreurs.push(`${code} · garantie : doit être vide ou comprise entre 0 et 480 min`);
+        } else {
+          sortie.garantieMin = n;
+        }
+      }
+      if (Object.keys(sortie).length) statuts[code] = sortie;
     }
-    valeurs[cle] = nombre;
+
+    // La somme des parts reservees ne doit pas depasser la totalite des places.
+    const sommeParts = Object.entries(REGLES_PAR_DEFAUT.statuts).reduce((somme, [code, cfg]) => {
+      const part = statuts[code]?.partMin ?? cfg.partMin ?? 0;
+      return somme + part;
+    }, 0);
+    if (sommeParts > 1) {
+      erreurs.push(`Les parts réservées totalisent ${Math.round(sommeParts * 100)} % : au-delà de 100 %, aucune convocation n'est possible`);
+    }
+
+    if (Object.keys(statuts).length) valeurs.statuts = statuts;
   }
 
   return { ok: erreurs.length === 0, erreurs, valeurs };
-}
-
-function borner(v, min, max, defaut) {
-  const n = Number(v);
-  if (Number.isNaN(n)) return defaut;
-  return Math.min(max, Math.max(min, n));
 }

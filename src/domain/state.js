@@ -17,10 +17,21 @@
 
 import { REGLES_PAR_DEFAUT } from '../config/rules.js';
 
-/** Etats possibles d'un ticket. */
+/**
+ * Etats possibles d'un ticket, dans l'ordre du parcours reel :
+ *
+ *   EN_ATTENTE ──convocation──> CONVOQUE ──1er scan──> EN_FILE_REELLE ──2e scan──> ENTRE
+ *                                   │
+ *                                   └──delai depasse──> EXPIRE
+ *
+ * EN_FILE_REELLE est l'etape ajoutee par le modele a trois etages : le visiteur
+ * a quitte le parc, il patiente physiquement devant l'attraction. Il n'expire
+ * plus, puisqu'il est la ; il attend qu'une place se libere dans la salle.
+ */
 export const ETATS_TICKET = {
   EN_ATTENTE: 'EN_ATTENTE',
   CONVOQUE: 'CONVOQUE',
+  EN_FILE_REELLE: 'EN_FILE_REELLE',
   ENTRE: 'ENTRE',
   EXPIRE: 'EXPIRE',
   ANNULE: 'ANNULE',   // desistement du visiteur (RG-14)
@@ -28,8 +39,19 @@ export const ETATS_TICKET = {
   PURGE: 'PURGE',     // purge de la file
 };
 
-/** Un ticket « vivant » occupe une place dans la file. */
-export const ETATS_ACTIFS = [ETATS_TICKET.EN_ATTENTE, ETATS_TICKET.CONVOQUE];
+/** Un ticket « vivant » occupe une place dans l'un des deux etages d'attente. */
+export const ETATS_ACTIFS = [
+  ETATS_TICKET.EN_ATTENTE,
+  ETATS_TICKET.CONVOQUE,
+  ETATS_TICKET.EN_FILE_REELLE,
+];
+
+/**
+ * Etats qui occupent une place dans la FILE REELLE : celui qui y est deja, et
+ * celui qui est en route avec une place qui lui est reservee. Compter les deux
+ * est ce qui empeche de depasser les 30 places (RG-16).
+ */
+export const ETATS_FILE_REELLE = [ETATS_TICKET.CONVOQUE, ETATS_TICKET.EN_FILE_REELLE];
 
 export function etatInitial() {
   return {
@@ -125,11 +147,11 @@ export function appliquer(state, ev) {
         etat: ETATS_TICKET.EN_ATTENTE,
         creeA: ev.ts,
         estimationInitialeMin: ev.estimationMin,
-        convoqueA: null,
+        convoqueA: null,            // appel vers la file reelle
         rappeleA: null,
-        entreA: null,
+        arriveA: null,              // 1er scan : arrivee dans la file reelle
+        entreA: null,               // 2e scan : entree dans la Salle du Temps
         termineA: null,
-        cycle: null,
         avertiFinJournee: false,
         motif: null,
       };
@@ -142,7 +164,6 @@ export function appliquer(state, ev) {
       if (t) {
         t.etat = ETATS_TICKET.CONVOQUE;
         t.convoqueA = ev.ts;
-        t.cycle = ev.cycle;
       }
       break;
     }
@@ -159,13 +180,26 @@ export function appliquer(state, ev) {
       break;
     }
 
+    // Premier scan : le visiteur convoque est arrive devant l'attraction. Son
+    // compte a rebours s'arrete ici — il est physiquement present, il ne peut
+    // plus etre declare absent (RG-10).
+    case 'TICKET_ARRIVE_FILE_REELLE': {
+      const t = state.tickets[ev.ticketId];
+      if (t) {
+        t.etat = ETATS_TICKET.EN_FILE_REELLE;
+        t.arriveA = ev.ts;
+        t.pendantGrace = !!ev.pendantGrace;
+      }
+      break;
+    }
+
+    // Second scan : une place s'est liberee, le visiteur entre dans la salle.
     case 'TICKET_ENTRE': {
       const t = state.tickets[ev.ticketId];
       if (t) {
         t.etat = ETATS_TICKET.ENTRE;
         t.entreA = ev.ts;
         t.termineA = ev.ts;
-        t.pendantGrace = !!ev.pendantGrace;
       }
       break;
     }
@@ -230,7 +264,7 @@ export function appliquer(state, ev) {
     case 'SCAN_ENREGISTRE': {
       state.scans.push({
         id: ev.scanId, ticketId: ev.ticketId ?? null, verdict: ev.verdict,
-        motif: ev.motif ?? null, agent: ev.acteur, ts: ev.ts,
+        etape: ev.etape ?? null, motif: ev.motif ?? null, agent: ev.acteur, ts: ev.ts,
       });
       break;
     }
@@ -255,27 +289,111 @@ export function appliquer(state, ev) {
 /* Selecteurs : lectures partagees par l'ordonnanceur, l'API et l'estimateur  */
 /* ------------------------------------------------------------------------ */
 
-/** Tickets encore dans la file, tries par ordre de passage theorique. */
+/** Tickets encore dans le parcours, tries par ordre de passage theorique. */
 export function ticketsActifs(state) {
   return Object.values(state.tickets)
     .filter((t) => ETATS_ACTIFS.includes(t.etat))
     .sort(comparerOrdrePassage(state));
 }
 
+/** Etage 1 : la file virtuelle. Tries par priorite puis par rang d'arrivee. */
 export function ticketsEnAttente(state) {
   return Object.values(state.tickets)
     .filter((t) => t.etat === ETATS_TICKET.EN_ATTENTE)
     .sort(comparerOrdrePassage(state));
 }
 
+/** Convoques, en route vers la file reelle : leur place y est deja reservee. */
 export function ticketsConvoques(state) {
   return Object.values(state.tickets).filter((t) => t.etat === ETATS_TICKET.CONVOQUE);
 }
 
 /**
- * Ordre de passage : d'abord le rang de priorite du statut, puis le rang
- * d'arrivee. Le rang d'arrivee n'est jamais modifie (RG-03) ; seule la lecture
- * de la file change selon la priorite.
+ * Etage 2 : la file reelle, devant l'attraction.
+ * L'ordre y est PHYSIQUE : premier arrive, premier entre. Les priorites de
+ * statut ont deja joue au moment de la convocation ; a ce stade, tout le monde
+ * est dans la meme file et il serait incomprehensible de doubler quelqu'un qui
+ * est la, sous les yeux des autres.
+ */
+export function ticketsFileReelle(state) {
+  return Object.values(state.tickets)
+    .filter((t) => t.etat === ETATS_TICKET.EN_FILE_REELLE)
+    .sort((a, b) => a.arriveA - b.arriveA);
+}
+
+/** Places occupees ou reservees dans la file reelle (arrives + en route). */
+export function occupationFileReelle(state) {
+  return Object.values(state.tickets).filter((t) => ETATS_FILE_REELLE.includes(t.etat)).length;
+}
+
+/** Places encore libres dans la file reelle (RG-16). */
+export function placesFileReelle(state) {
+  return Math.max(0, state.regles.capaciteFileReelle - occupationFileReelle(state));
+}
+
+/* ------------------------------------------------------------------------ */
+/* Etage 3 : la Salle du Temps                                               */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Duree de sejour supposee d'un visiteur, en minutes.
+ *
+ * Les visiteurs sortent quand ils veulent : le systeme ne le sait pas, seul le
+ * capteur le voit. Cette fonction ne sert donc QUE de repli quand aucun capteur
+ * n'est branche, pour que la demonstration reste vivante (la salle se vide
+ * toute seule). On disperse les durees autour de la moyenne de facon
+ * deterministe — derivee de l'identifiant du ticket — afin que le rejeu du
+ * journal redonne exactement le meme etat (RG-13).
+ */
+export function dureeSejourSupposeeMin(state, ticket) {
+  const moyenne = state.regles.dureeSejourMoyenneMin;
+  return moyenne * (0.6 + 0.8 * fractionStable(ticket.id));
+}
+
+function fractionStable(texte) {
+  let h = 0;
+  for (let i = 0; i < String(texte).length; i++) {
+    h = (Math.imul(h, 31) + String(texte).charCodeAt(i)) >>> 0;
+  }
+  return (h % 1000) / 1000;
+}
+
+/**
+ * Occupation estimee de la salle, utilisee UNIQUEMENT comme repli du capteur.
+ * Des qu'une URL de capteur est configuree, c'est le capteur qui fait foi.
+ */
+export function occupationSalleEstimee(state, maintenantMs) {
+  return Object.values(state.tickets).filter(
+    (t) => t.etat === ETATS_TICKET.ENTRE
+      && tempsActifEcoule(state, t.entreA, maintenantMs) < dureeSejourSupposeeMin(state, t) * 60_000,
+  ).length;
+}
+
+/**
+ * Occupation de la salle corrigee des entrees posterieures au dernier releve.
+ *
+ * Le capteur n'est interroge qu'a chaque battement. Sans cette correction, un
+ * agent qui scanne cinq visiteurs en trois secondes les ferait tous entrer sur
+ * la foi d'un releve qui date d'avant le premier : la salle depasserait ses 50
+ * places. On ajoute donc les entrees connues depuis le releve. Les sorties, on
+ * ne les connait pas — et c'est tant mieux : se tromper dans ce sens ferme la
+ * porte une minute de trop, jamais l'inverse.
+ *
+ * @param {object} state
+ * @param {{occupation:number, ts:number}} releve dernier releve du capteur
+ */
+export function occupationSalleCorrigee(state, releve) {
+  const depuis = releve?.ts ?? 0;
+  const entresDepuis = Object.values(state.tickets).filter(
+    (t) => t.entreA !== null && t.entreA > depuis,
+  ).length;
+  return Math.max(0, releve?.occupation ?? 0) + entresDepuis;
+}
+
+/**
+ * Ordre de passage dans la FILE VIRTUELLE : d'abord le rang de priorite du
+ * statut, puis le rang d'arrivee. Le rang d'arrivee n'est jamais modifie
+ * (RG-03) ; seule la lecture de la file change selon la priorite.
  */
 export function comparerOrdrePassage(state) {
   return (a, b) => {
@@ -290,6 +408,21 @@ export function ticketActifDe(state, visiteurId) {
   return Object.values(state.tickets).find(
     (t) => t.visiteurId === visiteurId && ETATS_ACTIFS.includes(t.etat),
   );
+}
+
+/**
+ * Ticket actif s'il y en a un, sinon le dernier de la journee.
+ *
+ * Sert aux ecrans du visiteur, et a rien d'autre : sans cela, quelqu'un qui
+ * vient d'entrer dans la salle — ou dont la convocation a expire — verrait son
+ * ticket disparaitre sans un mot, et se demanderait si son passage a bien ete
+ * enregistre. Les regles, elles, continuent de ne regarder que le ticket ACTIF.
+ */
+export function dernierTicketDe(state, visiteurId) {
+  return ticketActifDe(state, visiteurId)
+    ?? Object.values(state.tickets)
+      .filter((t) => t.visiteurId === visiteurId)
+      .sort((a, b) => b.creeA - a.creeA)[0];
 }
 
 /* ------------------------------------------------------------------------ */

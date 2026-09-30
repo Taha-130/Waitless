@@ -2,29 +2,47 @@
  * ---------------------------------------------------------------------------
  * ESTIMATION DE L'ATTENTE
  * ---------------------------------------------------------------------------
- * Reprend le « principe d'estimation » du chapitre 5 :
+ * Ce que le visiteur veut savoir : « dans combien de temps vais-je entrer dans
+ * la Salle du Temps ? ». Son attente traverse les deux etages :
  *
- *  1. Le debit nominal est corrige par le debit reellement observe et par
- *     l'occupation de la salle d'attente.
- *  2. L'attente d'un nouveau ticket integre les passages prioritaires attendus
- *     PENDANT cette attente : plus j'attends, plus des Saiyans me depassent,
- *     donc plus j'attends. D'ou un calcul itératif (point fixe) qui converge en
- *     quelques passes.
- *  3. On affiche une fourchette, elargie apres un incident.
+ *   attente totale = attente dans la file VIRTUELLE
+ *                  + traversee de la file REELLE
+ *
+ * Le calcul repose sur un seul chiffre, le DEBIT, c'est-a-dire le nombre de
+ * personnes qui entrent dans la salle par heure. Il n'est plus decrete par un
+ * nombre de places par cycle : la salle fonctionne en flux continu, donc
+ *
+ *   debit nominal = capacite de la salle / duree moyenne de sejour
+ *                 = 50 personnes / 20 min = 150 personnes par heure
+ *
+ * Cette valeur n'est qu'une hypothese de depart, puisque chacun sort quand il
+ * veut : elle est recalee sur les entrees REELLEMENT observees des qu'il y en a
+ * assez pour que la mesure ait un sens.
+ *
+ * Deux raffinements conserves du modele precedent :
+ *  - l'attente integre les passages prioritaires attendus PENDANT cette
+ *    attente : plus j'attends, plus des Saiyans me depassent, donc plus
+ *    j'attends. D'ou un calcul iteratif (point fixe) qui converge en quelques
+ *    passes ;
+ *  - on affiche une fourchette, elargie apres un incident.
  * ---------------------------------------------------------------------------
  */
 
 import { maintenant } from './clock.js';
-import { ticketsEnAttente, ticketsConvoques, ETATS_TICKET } from './state.js';
+import { ticketsEnAttente, ticketsFileReelle, ticketsConvoques } from './state.js';
 
-/** Debit nominal, en visiteurs par heure (ex. 20 places / 20 min = 60/h). */
+/**
+ * Debit nominal, en visiteurs par heure, deduit de la physique de la salle.
+ * 50 places liberees en moyenne toutes les 20 minutes = 150 entrees par heure.
+ */
 export function debitNominal(regles) {
-  return regles.placesParCycle * (60 / regles.dureeCycleMin);
+  return regles.capaciteSalle * (60 / regles.dureeSejourMoyenneMin);
 }
 
 /**
  * Debit effectif : moitie nominal, moitie observe sur les 30 dernieres minutes,
- * penalise si la salle d'attente est saturee.
+ * penalise quand la salle est pleine — une salle pleine n'accepte personne tant
+ * que quelqu'un n'en sort pas.
  */
 export function debitEffectif(state, occupationSalle = 0) {
   const r = state.regles;
@@ -33,33 +51,40 @@ export function debitEffectif(state, occupationSalle = 0) {
   const fenetreMin = 30;
 
   const entrees = Object.values(state.tickets).filter(
-    (t) => t.etat === ETATS_TICKET.ENTRE && now - t.entreA <= fenetreMin * 60_000,
+    (t) => t.entreA !== null && now - t.entreA <= fenetreMin * 60_000,
   ).length;
 
   // On ne fait confiance a l'observation qu'a partir de 5 passages.
   const observe = entrees >= 5 ? entrees * (60 / fenetreMin) : null;
   let debit = observe === null ? nominal : 0.5 * nominal + 0.5 * observe;
 
-  // Salle d'attente proche de la saturation : le debit reel se degrade.
-  const taux = occupationSalle / r.capaciteSalleAttente;
-  if (taux >= 0.9) debit *= 0.85;
+  // Salle proche de la saturation : plus personne n'entre sans une sortie.
+  const taux = occupationSalle / r.capaciteSalle;
+  if (taux >= 1) debit *= 0.6;
+  else if (taux >= 0.9) debit *= 0.85;
 
   return Math.max(1, debit);
 }
 
 /**
- * Nombre de visiteurs qui passeront avant un ticket donne.
+ * Nombre de visiteurs de la file VIRTUELLE qui passeront avant un ticket donne.
  * Pour un ticket hypothetique (nouvelle inscription), passer rang = Infinity.
  */
-export function nombreDevant(state, statut, rang = Infinity) {
+export function nombreDevantVirtuel(state, statut, rang = Infinity) {
   const rangPrio = state.regles.statuts[statut]?.rang ?? 99;
-  const devantEnAttente = ticketsEnAttente(state).filter((t) => {
+  return ticketsEnAttente(state).filter((t) => {
     const rp = state.regles.statuts[t.statut]?.rang ?? 99;
     return rp < rangPrio || (rp === rangPrio && t.rang < rang);
   }).length;
+}
 
-  // Les visiteurs deja convoques occupent des places : ils comptent aussi.
-  return devantEnAttente + ticketsConvoques(state).length;
+/**
+ * Nombre de visiteurs deja engages dans la file REELLE : ceux qui y patientent,
+ * et ceux qui sont en route avec une place reservee. Tous entreront avant le
+ * nouvel inscrit, quel que soit son statut : ils ont deja quitte le parc.
+ */
+export function nombreDevantReel(state) {
+  return ticketsFileReelle(state).length + ticketsConvoques(state).length;
 }
 
 /** Arrivees par heure des statuts strictement plus prioritaires que `statut`. */
@@ -87,12 +112,20 @@ function tauxArriveePrioritaire(state, statut) {
 
 /**
  * Estimation en minutes pour un statut donne.
- * @returns {{minutes:number, basse:number, haute:number, devant:number, debit:number}}
+ *
+ * @param {object} state
+ * @param {string} statut
+ * @param {{rang?:number, occupationSalle?:number, devantReel?:number}} options
+ * @returns {{minutes:number, minutesVirtuelle:number, minutesFileReelle:number,
+ *            basse:number, haute:number, devant:number, devantVirtuel:number,
+ *            devantReel:number, debit:number, elargie:boolean}}
  */
-export function estimer(state, statut, { rang = Infinity, occupationSalle = 0 } = {}) {
+export function estimer(state, statut, { rang = Infinity, occupationSalle = 0, devantReel } = {}) {
   const r = state.regles;
   const debit = debitEffectif(state, occupationSalle);
-  const devant = nombreDevant(state, statut, rang);
+  const devantVirtuel = nombreDevantVirtuel(state, statut, rang);
+  const reel = devantReel ?? nombreDevantReel(state);
+  const devant = devantVirtuel + reel;
   const tauxPrio = tauxArriveePrioritaire(state, statut);
 
   // --- Point fixe : attente = (devant + prioritaires arrives entre-temps) / debit
@@ -110,28 +143,65 @@ export function estimer(state, statut, { rang = Infinity, occupationSalle = 0 } 
     attente = suivante;
   }
 
+  // Part de l'attente qui se deroulera debout, devant l'attraction. Les
+  // prioritaires qui arriveront plus tard ne doublent pas la file reelle :
+  // cette portion-la se calcule donc sans le point fixe.
+  const minutesFileReelle = Math.min(attente, (reel / debit) * 60);
+
   // Un incident recent (moins de 30 min) elargit la fourchette.
   const incidentRecent = state.incidents.some(
     (i) => i.fin === null || maintenant() - i.fin < 30 * 60_000,
   );
   const elargissement = incidentRecent ? r.elargissementIncident : 1;
 
+  // La somme des deux parts doit faire le total affiche, a la minute pres :
+  // un visiteur qui lit « 8 min dans le parc puis 12 min sur place » et un
+  // total de 21 min se demanderait, a juste titre, ou est passee la minute.
   const minutes = Math.round(attente);
+  const partReelle = Math.min(minutes, Math.round(minutesFileReelle));
   return {
     minutes,
+    minutesVirtuelle: minutes - partReelle,
+    minutesFileReelle: partReelle,
     basse: Math.max(0, Math.floor(minutes * r.facteurFourchetteBasse)),
     haute: Math.ceil(minutes * r.facteurFourchetteHaute * elargissement),
     devant,
+    devantVirtuel,
+    devantReel: reel,
     debit: Math.round(debit),
     elargie: incidentRecent,
+  };
+}
+
+/**
+ * Attente restante d'un visiteur DEJA dans la file reelle : il ne depend plus
+ * que des personnes devant lui et du rythme auquel la salle se vide.
+ */
+export function estimerDepuisFileReelle(state, ticket, occupationSalle = 0) {
+  const debit = debitEffectif(state, occupationSalle);
+  const devant = ticketsFileReelle(state).filter((t) => t.arriveA < ticket.arriveA).length;
+  const minutes = Math.round((devant / debit) * 60);
+  const r = state.regles;
+  return {
+    minutes,
+    devant,
+    basse: Math.max(0, Math.floor(minutes * r.facteurFourchetteBasse)),
+    haute: Math.ceil(minutes * r.facteurFourchetteHaute),
+    debit: Math.round(debit),
   };
 }
 
 /** Estimation pour chacun des trois statuts (ecran d'accueil, tableau de bord). */
 export function estimerTousStatuts(state, occupationSalle = 0) {
   const sortie = {};
+  const devantReel = nombreDevantReel(state);
   for (const code of Object.keys(state.regles.statuts)) {
-    sortie[code] = estimer(state, code, { occupationSalle });
+    sortie[code] = estimer(state, code, { occupationSalle, devantReel });
   }
   return sortie;
+}
+
+/** Nombre total de personnes devant, les deux etages confondus. */
+export function nombreDevant(state, statut, rang = Infinity) {
+  return nombreDevantVirtuel(state, statut, rang) + nombreDevantReel(state);
 }
