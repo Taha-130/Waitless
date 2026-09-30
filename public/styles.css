@@ -140,11 +140,15 @@ tbody tr:last-child td { border-bottom: 0; }
 .etiquette.SAIYAN { background: #e8f4ff; border-color: #a9cdf0; color: #14497a; }
 .etiquette.HUMAIN { background: #f0f0f4; color: #43465e; }
 .etiquette.CONVOQUE { background: var(--ki); color: #24160a; border-color: transparent; }
+.etiquette.FILE_REELLE { background: var(--jade); color: #fff; border-color: transparent; }
 
 /* --- Verdict de scan ---------------------------------------------------- */
+/* Trois verdicts, trois couleurs : l'agent doit pouvoir trancher sans lire.
+   Ambre = le visiteur est arrive, il patiente. Vert = il entre. Rouge = non. */
 
 .verdict { border-radius: var(--rayon); padding: 20px; color: #fff; margin-bottom: 12px; }
 .verdict.ACCEPTE { background: var(--jade); }
+.verdict.ARRIVEE { background: var(--ki); color: #24160a; }
 .verdict.REFUSE { background: var(--braise); }
 .verdict .mot { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.02em; }
 

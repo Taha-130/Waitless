@@ -2,8 +2,9 @@
  * ---------------------------------------------------------------------------
  * SCRIPT DE PEUPLEMENT
  * ---------------------------------------------------------------------------
- *   node seed.js                 -> 24 visiteurs dans la file
+ *   node seed.js                 -> 24 visiteurs dans la file virtuelle
  *   node seed.js --nombre=40     -> 40 visiteurs
+ *   node seed.js --scannes=12    -> dont 12 deja scannes a l'entree de la file reelle
  *   node seed.js --heure=17:30   -> positionne l'horloge avant de peupler
  *   node seed.js --vitesse=60    -> 1 minute simulee par seconde reelle
  *   node seed.js --reset         -> efface la journee et repart de zero
@@ -45,8 +46,11 @@ if (args.heure || args.vitesse) {
 }
 
 if (!args.reset) {
-  const { inscrits, refuses } = semer(Number(args.nombre) || 24);
-  console.log(`${inscrits} visiteur(s) inscrit(s).`);
+  const { inscrits, scannes, refuses } = semer(Number(args.nombre) || 24, {
+    scannes: Number(args.scannes) || 0,
+  });
+  console.log(`${inscrits} visiteur(s) inscrit(s) dans la file virtuelle.`);
+  if (scannes) console.log(`${scannes} scanne(s) a l'entree de la file reelle.`);
   if (refuses.length) {
     console.log(`${refuses.length} refus (regles metier) :`);
     for (const x of refuses.slice(0, 5)) console.log(`  - ${x.email} : ${x.motif}`);

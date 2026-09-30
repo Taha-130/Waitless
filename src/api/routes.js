@@ -13,7 +13,9 @@
 
 import { etat, publier } from '../domain/eventStore.js';
 import { reglerHorloge, etatHorloge, maintenant } from '../domain/clock.js';
-import { ticketActifDe, ETATS_TICKET } from '../domain/state.js';
+import {
+  ticketActifDe, dernierTicketDe, occupationSalleEstimee, ETATS_TICKET,
+} from '../domain/state.js';
 import { genererJeton } from '../domain/qr.js';
 import { ordonnancer } from '../domain/scheduler.js';
 import { validerRegles } from '../config/rules.js';
@@ -22,17 +24,17 @@ import {
   enregistrerVisiteur, donnerConsentements, declarerAptitude,
   rejoindreFile, seDesister, retirerTicket,
   mettreEnPause, reprendre, purger, rouvrirFile,
-  ouvrirIncident, cloreIncident, scanner, modifierRegles,
+  ouvrirIncident, cloreIncident, scanner, modifierRegles, modifierVisiteur,
 } from '../domain/commands.js';
 import { envoyer, messages } from '../infra/mailer.js';
-import { dernierReleve, forcerOccupation } from '../infra/sensor.js';
+import { dernierReleve, forcerOccupation, releverCapteur } from '../infra/sensor.js';
 import { semer } from '../infra/jeuDeDonnees.js';
 import { erreurHttp, ouvrirFlux } from './http.js';
 import {
   creerLienMagique, verifierLienMagique, creerSession,
   exigerRole, exigerVisiteur,
 } from './auth.js';
-import { vueFile, vueTicket, vueFileAgent, vueMetriques } from './views.js';
+import { vueFile, vueTicket, vueFileAgent, vueMetriques, vueUtilisateurs } from './views.js';
 
 /** Flux SSE ouverts. */
 const flux = new Set();
@@ -84,7 +86,9 @@ export function enregistrerRoutes(app) {
 
   app.get('/api/me', (ctx) => {
     const v = exigerVisiteur(ctx);
-    const t = ticketActifDe(etat(), v.id);
+    // Le dernier ticket, actif ou termine : le visiteur a droit a la confirmation
+    // de son entree, ou a l'explication de son expiration.
+    const t = dernierTicketDe(etat(), v.id);
     return { visiteur: profil(v), ticket: vueTicket(etat(), t), textes: TEXTES };
   });
 
@@ -175,6 +179,8 @@ export function enregistrerRoutes(app) {
     const v = exigerVisiteur(ctx);
     const t = etat().tickets[ctx.params.id];
     if (!t || t.visiteurId !== v.id) throw erreurHttp(404, 'Ticket introuvable');
+    // Le code s'active a la convocation et sert une seule fois, au scan a
+    // l'entree de la file reelle.
     if (t.etat !== ETATS_TICKET.CONVOQUE) {
       throw new ErreurMetier('Le code n\'est actif qu\'une fois convoqué', 'NON_CONVOQUE');
     }
@@ -185,6 +191,10 @@ export function enregistrerRoutes(app) {
   /* Console agent                                                        */
   /* ==================================================================== */
 
+  /**
+   * Scan du QR code, a l'entree de la file reelle. C'est le seul scan du
+   * parcours : l'entree dans la salle se fait ensuite sans verification.
+   */
   app.post('/api/agent/scans', (ctx) => {
     const s = exigerRole(ctx, 'agent', 'admin');
     const resultat = scanner(ctx.body.jeton, s.role);
@@ -256,15 +266,23 @@ export function enregistrerRoutes(app) {
   });
 
   /* ==================================================================== */
-  /* Capteur de la salle d'attente (F-14)                                 */
+  /* Capteur de la Salle du Temps (F-14)                                  */
   /* ==================================================================== */
 
+  // Le capteur compte les personnes PRESENTES DANS LA SALLE. C'est la seule
+  // mesure que le systeme ne peut pas deduire : personne ne scanne en sortant.
+  app.get('/api/sensors/time-chamber/:id', () => dernierReleve());
+  // Ancien chemin, conserve le temps que les capteurs deployes soient reconfigures.
   app.get('/api/sensors/waiting-room/:id', () => dernierReleve());
 
   // Permet de jouer la saturation de la salle pendant la demonstration.
-  app.put('/api/mock/sensors', (ctx) => {
+  app.put('/api/mock/sensors', async (ctx) => {
     exigerRole(ctx, 'admin');
     const valeur = forcerOccupation(ctx.body.occupation);
+    // Releve immediat, sans attendre le battement suivant. C'est surtout vrai
+    // au RELACHEMENT du forcage : sans cela, l'ecran continuerait d'afficher
+    // une salle pleine pendant cinq secondes apres qu'on l'a liberee.
+    await releverCapteur(etat().regles.capteurUrl, occupationSalleEstimee(etat(), maintenant()));
     diffuserEtat();
     return { forcage: valeur, releve: dernierReleve() };
   });
@@ -293,6 +311,23 @@ export function enregistrerRoutes(app) {
     return { regles };
   });
 
+  // Onglet « Utilisateurs » : consultation et correction des visiteurs.
+  app.get('/api/admin/users', (ctx) => {
+    exigerRole(ctx, 'admin');
+    return { utilisateurs: vueUtilisateurs(etat()) };
+  });
+
+  app.put('/api/admin/users/:id', (ctx) => {
+    const s = exigerRole(ctx, 'admin');
+    if (!etat().visiteurs[ctx.params.id] || etat().visiteurs[ctx.params.id].efface) {
+      throw erreurHttp(404, 'Utilisateur introuvable');
+    }
+    const { prenom, initiale, statut, apte } = ctx.body;
+    modifierVisiteur(ctx.params.id, { prenom, initiale, statut, apte }, s.role);
+    diffuserEtat();
+    return { utilisateurs: vueUtilisateurs(etat()) };
+  });
+
   app.get('/api/admin/audit-logs', (ctx) => {
     exigerRole(ctx, 'admin');
     return { audit: etat().audit.slice(-200).reverse() };
@@ -316,7 +351,9 @@ export function enregistrerRoutes(app) {
   // Peuplement du jeu de donnees fictif, sans arreter le serveur.
   app.post('/api/admin/seed', (ctx) => {
     exigerRole(ctx, 'admin');
-    const resultat = semer(Number(ctx.body.nombre) || 24);
+    const resultat = semer(Number(ctx.body.nombre) || 24, {
+      scannes: Number(ctx.body.scannes) || 0,
+    });
     diffuserEtat();
     return resultat;
   });

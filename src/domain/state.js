@@ -17,19 +17,34 @@
 
 import { REGLES_PAR_DEFAUT } from '../config/rules.js';
 
-/** Etats possibles d'un ticket. */
+/**
+ * Etats possibles d'un ticket, dans l'ordre du parcours reel :
+ *
+ *   EN_ATTENTE ──convocation──> CONVOQUE ──scan──> VALIDE
+ *                                   │
+ *                                   └──delai depasse──> EXPIRE
+ *
+ * Il n'y a qu'UN scan, a l'entree de la file reelle. L'agent y verifie le QR
+ * code : le ticket est alors VALIDE, et consomme. Un second agent, sans
+ * application, fait ensuite entrer les visiteurs dans la salle, sans nouvelle
+ * verification. Le systeme ne sait donc pas qui est encore dans la file reelle
+ * et qui est deja dans la salle : pour lui, le parcours s'arrete au scan.
+ */
 export const ETATS_TICKET = {
   EN_ATTENTE: 'EN_ATTENTE',
   CONVOQUE: 'CONVOQUE',
-  ENTRE: 'ENTRE',
+  VALIDE: 'VALIDE',   // QR scanne a l'entree de la file reelle, code consomme
   EXPIRE: 'EXPIRE',
   ANNULE: 'ANNULE',   // desistement du visiteur (RG-14)
   RETIRE: 'RETIRE',   // retrait par l'agent (RG-11)
   PURGE: 'PURGE',     // purge de la file
 };
 
-/** Un ticket « vivant » occupe une place dans la file. */
-export const ETATS_ACTIFS = [ETATS_TICKET.EN_ATTENTE, ETATS_TICKET.CONVOQUE];
+/** Un ticket « vivant » : dans le parc, ou convoque et en route. */
+export const ETATS_ACTIFS = [
+  ETATS_TICKET.EN_ATTENTE,
+  ETATS_TICKET.CONVOQUE,
+];
 
 export function etatInitial() {
   return {
@@ -101,6 +116,13 @@ export function appliquer(state, ev) {
       break;
     }
 
+    // Correction des informations d'un visiteur par l'administrateur.
+    case 'VISITEUR_MODIFIE': {
+      const v = state.visiteurs[ev.visiteurId];
+      if (v) Object.assign(v, ev.modifications);
+      break;
+    }
+
     case 'VISITEUR_EFFACE': {
       // RGPD, droit a l'effacement. On ne supprime pas la ligne du journal
       // (elle serait irrecuperable pour la reprise) : on efface les donnees
@@ -125,11 +147,10 @@ export function appliquer(state, ev) {
         etat: ETATS_TICKET.EN_ATTENTE,
         creeA: ev.ts,
         estimationInitialeMin: ev.estimationMin,
-        convoqueA: null,
+        convoqueA: null,            // appel vers la file reelle
         rappeleA: null,
-        entreA: null,
+        valideA: null,              // scan a l'entree de la file reelle
         termineA: null,
-        cycle: null,
         avertiFinJournee: false,
         motif: null,
       };
@@ -142,7 +163,6 @@ export function appliquer(state, ev) {
       if (t) {
         t.etat = ETATS_TICKET.CONVOQUE;
         t.convoqueA = ev.ts;
-        t.cycle = ev.cycle;
       }
       break;
     }
@@ -159,11 +179,13 @@ export function appliquer(state, ev) {
       break;
     }
 
-    case 'TICKET_ENTRE': {
+    // Le scan : le visiteur convoque est arrive a l'entree de la file reelle.
+    // Son code est consomme ; il ne peut plus expirer (RG-10).
+    case 'TICKET_VALIDE': {
       const t = state.tickets[ev.ticketId];
       if (t) {
-        t.etat = ETATS_TICKET.ENTRE;
-        t.entreA = ev.ts;
+        t.etat = ETATS_TICKET.VALIDE;
+        t.valideA = ev.ts;
         t.termineA = ev.ts;
         t.pendantGrace = !!ev.pendantGrace;
       }
@@ -230,7 +252,7 @@ export function appliquer(state, ev) {
     case 'SCAN_ENREGISTRE': {
       state.scans.push({
         id: ev.scanId, ticketId: ev.ticketId ?? null, verdict: ev.verdict,
-        motif: ev.motif ?? null, agent: ev.acteur, ts: ev.ts,
+        etape: ev.etape ?? null, motif: ev.motif ?? null, agent: ev.acteur, ts: ev.ts,
       });
       break;
     }
@@ -244,7 +266,7 @@ export function appliquer(state, ev) {
   if (ev.acteur && ev.acteur !== 'systeme') {
     state.audit.push({
       ts: ev.ts, acteur: ev.acteur, action: ev.type,
-      details: ev.motif ?? ev.ticketId ?? ev.verdict ?? '',
+      details: ev.motif ?? ev.details ?? ev.ticketId ?? ev.verdict ?? '',
     });
   }
 
@@ -255,27 +277,78 @@ export function appliquer(state, ev) {
 /* Selecteurs : lectures partagees par l'ordonnanceur, l'API et l'estimateur  */
 /* ------------------------------------------------------------------------ */
 
-/** Tickets encore dans la file, tries par ordre de passage theorique. */
+/** Tickets encore dans le parcours, tries par ordre de passage theorique. */
 export function ticketsActifs(state) {
   return Object.values(state.tickets)
     .filter((t) => ETATS_ACTIFS.includes(t.etat))
     .sort(comparerOrdrePassage(state));
 }
 
+/** Etage 1 : la file virtuelle. Tries par priorite puis par rang d'arrivee. */
 export function ticketsEnAttente(state) {
   return Object.values(state.tickets)
     .filter((t) => t.etat === ETATS_TICKET.EN_ATTENTE)
     .sort(comparerOrdrePassage(state));
 }
 
+/** Convoques, en route vers la file reelle : leur place y est deja reservee. */
 export function ticketsConvoques(state) {
   return Object.values(state.tickets).filter((t) => t.etat === ETATS_TICKET.CONVOQUE);
 }
 
+/** Tickets scannes a l'entree de la file reelle, dans l'ordre du scan. */
+export function ticketsValides(state) {
+  return Object.values(state.tickets)
+    .filter((t) => t.etat === ETATS_TICKET.VALIDE)
+    .sort((a, b) => a.valideA - b.valideA);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Etage 3 : la Salle du Temps                                               */
+/* ------------------------------------------------------------------------ */
+
 /**
- * Ordre de passage : d'abord le rang de priorite du statut, puis le rang
- * d'arrivee. Le rang d'arrivee n'est jamais modifie (RG-03) ; seule la lecture
- * de la file change selon la priorite.
+ * Duree de sejour supposee d'un visiteur, en secondes.
+ *
+ * Les visiteurs sortent quand ils veulent : le systeme ne le sait pas, seul le
+ * capteur le voit. Cette fonction ne sert donc QUE de repli quand aucun capteur
+ * n'est branche, pour que la demonstration reste vivante (la salle se vide
+ * toute seule). On repartit les durees sur la plage min-max (30 s a 2 min) de
+ * facon deterministe — derivee de l'identifiant du ticket — afin que le rejeu
+ * du journal redonne exactement le meme etat (RG-13).
+ */
+export function dureeSejourSupposeeSec(state, ticket) {
+  const { dureeSejourMinSec: min, dureeSejourMaxSec: max } = state.regles;
+  return min + (max - min) * fractionStable(ticket.id);
+}
+
+function fractionStable(texte) {
+  let h = 0;
+  for (let i = 0; i < String(texte).length; i++) {
+    h = (Math.imul(h, 31) + String(texte).charCodeAt(i)) >>> 0;
+  }
+  return (h % 1000) / 1000;
+}
+
+/**
+ * Occupation estimee de la salle, utilisee UNIQUEMENT comme repli du capteur.
+ * Des qu'une URL de capteur est configuree, c'est le capteur qui fait foi.
+ *
+ * L'entree dans la salle n'etant pas scannee, on prend l'heure du scan comme
+ * heure d'entree approximative, et on borne a la capacite de la salle.
+ */
+export function occupationSalleEstimee(state, maintenantMs) {
+  const presents = Object.values(state.tickets).filter(
+    (t) => t.etat === ETATS_TICKET.VALIDE
+      && tempsActifEcoule(state, t.valideA, maintenantMs) < dureeSejourSupposeeSec(state, t) * 1000,
+  ).length;
+  return Math.min(state.regles.capaciteSalle, presents);
+}
+
+/**
+ * Ordre de passage dans la FILE VIRTUELLE : d'abord le rang de priorite du
+ * statut, puis le rang d'arrivee. Le rang d'arrivee n'est jamais modifie
+ * (RG-03) ; seule la lecture de la file change selon la priorite.
  */
 export function comparerOrdrePassage(state) {
   return (a, b) => {
@@ -290,6 +363,21 @@ export function ticketActifDe(state, visiteurId) {
   return Object.values(state.tickets).find(
     (t) => t.visiteurId === visiteurId && ETATS_ACTIFS.includes(t.etat),
   );
+}
+
+/**
+ * Ticket actif s'il y en a un, sinon le dernier de la journee.
+ *
+ * Sert aux ecrans du visiteur, et a rien d'autre : sans cela, quelqu'un dont
+ * le code vient d'etre scanne — ou dont la convocation a expire — verrait son
+ * ticket disparaitre sans un mot, et se demanderait si son passage a bien ete
+ * enregistre. Les regles, elles, continuent de ne regarder que le ticket ACTIF.
+ */
+export function dernierTicketDe(state, visiteurId) {
+  return ticketActifDe(state, visiteurId)
+    ?? Object.values(state.tickets)
+      .filter((t) => t.visiteurId === visiteurId)
+      .sort((a, b) => b.creeA - a.creeA)[0];
 }
 
 /* ------------------------------------------------------------------------ */
