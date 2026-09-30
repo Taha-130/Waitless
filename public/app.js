@@ -239,13 +239,17 @@ function ecranVisiteur() {
   const aConsenti = visiteur.consentements.length >= 2;
   if (!aConsenti || visiteur.apte === null) return ecranConsentement(visiteur);
   if (visiteur.apte === false) {
-    return `<div class="bloc danger">
-      <h1>Accès non autorisé</h1>
-      <p>Vous avez déclaré ne pas remplir les conditions d'accès à la Salle du Temps.
-      L'attraction impose plusieurs G ; par sécurité, l'inscription est bloquée.</p>
-      <button class="sobre" data-action="revenir-aptitude">Je me suis trompé, je suis apte</button>
-    </div>`;
-  }
+  return `<div class="bloc danger">
+    <h1>Accès refusé</h1>
+    <p>Vous avez déclaré ne pas remplir les conditions d’accès à la Salle du Temps.
+    L’attraction impose plusieurs G. Par mesure de sécurité, votre inscription est donc bloquée.</p>
+
+    <h2>Vous pensez vous être trompé ?</h2>
+    <p>Si vous êtes finalement apte à participer à l’attraction, vous pouvez modifier votre déclaration.</p>
+
+    <button class="sobre" data-action="revenir-aptitude">Je suis bien apte</button>
+  </div>`;
+}
 
   // Etape 3 : convocation en cours -> prise de parole plein ecran.
   if (ticket && ticket.etat === 'CONVOQUE') return ecranConvocation(ticket);
