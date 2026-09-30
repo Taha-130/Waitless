@@ -249,7 +249,7 @@ function ecranVisiteur() {
   // Etape 2 : pas de ticket -> page attraction. Sinon suivi du ticket.
   if (!ticket) return ecranAttraction(visiteur);
   if (ticket.etat === 'EN_ATTENTE') return ecranMonTicket(ticket);
-  return ecranFinParcours(ticket);
+  return ecranFinParcours(ticket, visiteur);
 }
 
 function ecranConsentement(visiteur) {
@@ -396,7 +396,11 @@ function ecranFileReelle(ticket) {
     </div></div>`;
 }
 
-function ecranFinParcours(ticket) {
+function ecranFinParcours(ticket, visiteur) {
+  if (S.onglet === 'profil') {
+    return `${barreOnglets([['resume', 'Résumé'], ['profil', 'Mes données']])}${blocProfil(visiteur)}`;
+  }
+
   const textes = {
     ENTRE: ['Bon voyage dans le temps', 'Votre entrée a été validée. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc.'],
     EXPIRE: ['Convocation expirée', "Vous n'avez pas rejoint la file de l'attraction à temps. Vous pouvez vous réinscrire en fin de file."],
