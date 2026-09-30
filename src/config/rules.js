@@ -17,13 +17,15 @@
  *
  *   2. FILE REELLE      `capaciteFileReelle` personnes au maximum (30), juste
  *                       devant l'attraction. On y est CONVOQUE, on s'y rend,
- *                       et l'agent enregistre l'arrivee au premier scan.
+ *                       et l'agent scanne le QR code a l'entree de la file.
+ *                       C'est le seul scan du parcours.
  *
- *   3. SALLE DU TEMPS   `capaciteSalle` personnes au maximum (50). L'agent y
- *                       fait entrer la file reelle au second scan, au rythme
- *                       des places qui se liberent. On en sort quand on veut :
- *                       c'est le CAPTEUR, et lui seul, qui dit combien de
- *                       personnes s'y trouvent.
+ *   3. SALLE DU TEMPS   `capaciteSalle` personnes au maximum (50). Un second
+ *                       agent, sans application, y fait entrer la file reelle
+ *                       au rythme des places qui se liberent, sans nouvelle
+ *                       verification. On en sort quand on veut : c'est le
+ *                       CAPTEUR, et lui seul, qui dit combien de personnes
+ *                       s'y trouvent.
  *
  * Consequence directe sur le parametrage : il n'y a ni cycle, ni fournee. Le
  * debit n'est pas decrete, il se deduit de la capacite de la salle et de la

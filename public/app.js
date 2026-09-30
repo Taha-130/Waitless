@@ -95,12 +95,15 @@ async function rafraichir() {
     if (S.role === 'visiteur') S.moi = await api('GET', '/api/me');
     if (S.role === 'agent' || S.role === 'admin') S.agent = await api('GET', '/api/agent/queue');
     if (S.role === 'admin') {
-      const [metriques, regles, audit] = await Promise.all([
+      const [metriques, regles, audit, utilisateurs] = await Promise.all([
         api('GET', '/api/admin/metrics'),
         api('GET', '/api/admin/config/rules'),
         api('GET', '/api/admin/audit-logs'),
+        api('GET', '/api/admin/users'),
       ]);
-      S.admin = { metriques, regles: regles.regles, audit: audit.audit };
+      S.admin = {
+        metriques, regles: regles.regles, audit: audit.audit, utilisateurs: utilisateurs.utilisateurs,
+      };
     }
     S.recuA = Date.now();
   } catch (e) {
@@ -136,7 +139,10 @@ async function rafraichirDiscret(saisieEnCours) {
     }
     S.recuA = Date.now();
   } catch { /* le bandeau signalera la coupure */ }
-  if (saisieEnCours) rendreBandeau(); else rendre();
+  // L'onglet Utilisateur n'est pas redessine a chaque battement : cela
+  // effacerait une modification en cours avant qu'elle soit enregistree.
+  const edition = S.role === 'admin' && S.onglet === 'utilisateurs';
+  if (saisieEnCours || edition) rendreBandeau(); else rendre();
 }
 
 /* ------------------------------------------------------------ Rendu ----- */
@@ -172,7 +178,7 @@ function rendreBandeau() {
     <span>${v ? echapper(v.file.nom) : 'Waitless'}</span>
     ${v ? `<span class="pastille ${etats[v.file.etat] || ''}">${libelleEtatFile(v)}</span>` : ''}
     ${v && equipe ? `<span class="pastille ${v.salle.pleine ? 'alerte' : ''}">Salle ${v.salle.occupation}/${v.salle.capacite}</span>` : ''}
-    ${v && equipe ? `<span class="pastille ${v.fileReelle.pleine ? 'alerte' : ''}">File réelle ${v.fileReelle.occupation}/${v.fileReelle.capacite}</span>` : ''}
+    ${v && equipe ? `<span class="pastille ${v.fileReelle.pleine ? 'alerte' : ''}">File réelle ≈ ${v.fileReelle.occupation}/${v.fileReelle.capacite}</span>` : ''}
     <span class="pousse">${S.role ? `<button data-action="deconnexion">Quitter (${S.role})</button>` : ''}</span>
   `;
   // Le bandeau est parfois redessine seul (pendant une saisie) : il rebranche
@@ -243,8 +249,6 @@ function ecranVisiteur() {
 
   // Etape 3 : convoque -> prise de parole plein ecran, il faut se deplacer.
   if (ticket && ticket.etat === 'CONVOQUE') return ecranConvocation(ticket);
-  // Etape 4 : arrive devant l'attraction, il patiente, code en main.
-  if (ticket && ticket.etat === 'EN_FILE_REELLE') return ecranFileReelle(ticket);
 
   // Etape 2 : pas de ticket -> page attraction. Sinon suivi du ticket.
   if (!ticket) return ecranAttraction(visiteur);
@@ -340,8 +344,7 @@ function ecranMonTicket(ticket) {
       <h3>Votre code d'accès</h3>
       <p class="discret">Il s'activera automatiquement dès que nous vous convoquerons.
       Inutile de rester sur l'application : nous vous envoyons un e-mail.</p>
-      <p class="discret">Il servira deux fois : à votre arrivée devant l'attraction,
-      puis au moment d'entrer dans la salle.</p>
+      <p class="discret">Il sera scanné une seule fois, à votre arrivée devant l'attraction.</p>
       <button class="sobre large" data-action="desister">Quitter la file</button>
     </div>
     ${blocEtatFile()}`;
@@ -361,9 +364,9 @@ function ecranConvocation(ticket) {
         <p class="code-secours" id="code-secours">Préparation du code…</p>
         <p class="discret">Code renouvelé toutes les 30 secondes. Une capture d'écran ne fonctionne pas.</p>
       </div>
-      <div class="message info">Le décompte s'arrête dès que l'agent a scanné votre arrivée.
-        Vous attendrez ensuite sur place qu'une place se libère dans la salle
-        (${ticket.devantFileReelle} personne(s) devant vous, ${ticket.placesSalle} place(s) libre(s)).</div>
+      <div class="message info">Le décompte s'arrête dès que l'agent a scanné votre code.
+        Vous suivrez ensuite la file : un agent vous fera entrer dans la salle dès qu'une place
+        se libère (environ ${ticket.devantFileReelle} personne(s) dans la file).</div>
       <p class="discret">L'agent contrôlera aussi votre pièce d'identité.</p>
       <button class="sobre" data-action="desister">Je ne peux pas venir</button>
     </div></div>`;
@@ -402,7 +405,7 @@ function ecranFinParcours(ticket, visiteur) {
   }
 
   const textes = {
-    ENTRE: ['Bon voyage dans le temps', 'Votre entrée a été validée. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc.'],
+    VALIDE: ['Code validé', "Suivez la file : un agent vous fera entrer dans la Salle du Temps dès qu'une place se libère. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc."],
     EXPIRE: ['Convocation expirée', "Vous n'avez pas rejoint la file de l'attraction à temps. Vous pouvez vous réinscrire en fin de file."],
     ANNULE: ['Vous avez quitte la file', 'Votre place a été libérée. Vous pouvez vous réinscrire quand vous voulez.'],
     RETIRE: ['Ticket retiré par un agent', ticket.motif || 'Un agent a retiré votre ticket.'],
@@ -426,7 +429,7 @@ function blocEtatFile() {
       <h3>L'attraction en direct</h3>
       <div class="indicateurs">
         <div class="indicateur"><div class="valeur">${v.compteurs.enAttente}</div><div class="titre">dans la file virtuelle</div></div>
-        <div class="indicateur"><div class="valeur">${v.compteurs.entres}</div><div class="titre">entrées aujourd'hui</div></div>
+        <div class="indicateur"><div class="valeur">${v.compteurs.valides}</div><div class="titre">passages aujourd'hui</div></div>
       </div>
     </div>`;
 }
@@ -440,8 +443,8 @@ function blocInfos() {
       <p>Vous prenez votre rang depuis votre téléphone et vous profitez du parc. Quand
       votre tour approche, nous vous appelons : vous avez alors ${v.delais.convocationMin} minutes
       pour rejoindre la file d'attente installée devant l'attraction, qui accueille
-      ${v.fileReelle.capacite} personnes. Un agent y scanne votre code à l'arrivée, puis une
-      seconde fois pour vous faire entrer dès qu'une place se libère.</p>
+      ${v.fileReelle.capacite} personnes. Un agent y scanne votre code à l'arrivée ; vous entrez
+      ensuite dans la salle dès qu'une place se libère.</p>
       <h3>Capacité</h3>
       <p>La Salle du Temps accueille ${v.salle.capacite} personnes. Chacun en sort quand il le
       souhaite ; un séjour dure entre ${formaterDuree(v.salle.dureeSejourMinSec)} et
@@ -496,73 +499,44 @@ function ecranAgent() {
 }
 
 /**
- * Le poste de l'agent. Les deux chiffres qui commandent tout son travail sont
- * en haut, en gros : combien de personnes dans la salle, combien devant la
- * porte. Le reste de l'ecran ne sert qu'a scanner.
+ * Le poste de l'agent, a l'entree de la file reelle : il scanne le code et
+ * lit le verdict. Rien d'autre. L'entree dans la salle est geree par un
+ * second agent, sans application.
  */
 function blocScan() {
   const s = S.scan;
-  const v = S.vue;
-  const mots = { ACCEPTE: 'Entrée autorisée', ARRIVEE: 'Arrivée enregistrée', REFUSE: 'Refusé' };
-  const pct = v ? Math.min(100, Math.round((v.salle.occupation / v.salle.capacite) * 100)) : 0;
+  const mots = { ACCEPTE: 'Code valide', REFUSE: 'Refusé' };
 
   return `
-    ${v ? `<div class="bloc ${v.salle.pleine ? 'danger' : 'accent'}">
-        <h3>Salle du Temps</h3>
-        <div class="chiffre ${v.salle.pleine ? 'urgence' : ''}">${v.salle.occupation}<span class="unite"> / ${v.salle.capacite} places</span></div>
-        <div class="jauge ${pct >= 90 ? 'pleine' : ''}"><span style="width:${pct}%"></span></div>
-        <p class="discret">${v.salle.pleine
-          ? 'Salle pleine : aucune entrée possible tant que personne n\'en sort.'
-          : `${v.salle.places} place(s) libre(s) — vous pouvez faire entrer ${v.salle.places} visiteur(s).`}
-          Comptage : ${echapper(v.salle.source)}${v.salle.age !== null ? `, il y a ${v.salle.age} s` : ''}.</p>
-        <p class="discret">File devant l'attraction : ${v.fileReelle.presents} présent(s)
-          ${v.fileReelle.enRoute ? `, ${v.fileReelle.enRoute} en route` : ''}
-          — ${v.fileReelle.occupation} / ${v.fileReelle.capacite} places.</p>
-      </div>` : ''}
     ${s ? `<div class="verdict ${s.verdict}">
         <div class="mot">${mots[s.verdict] || s.verdict}</div>
         ${s.visiteur ? `<p>${echapper(s.visiteur.prenom)} ${echapper(s.visiteur.initiale)}. —
           ${echapper(S.vue?.statuts?.[s.visiteur.statut]?.libelle || s.visiteur.statut)}.
-          ${s.verdict === 'ACCEPTE' ? 'Contrôlez la pièce d\'identité avant de laisser entrer.' : ''}</p>` : ''}
+          ${s.verdict === 'ACCEPTE' ? 'Contrôlez la pièce d\'identité, puis laissez passer dans la file.' : ''}</p>` : ''}
         ${s.motif ? `<p>${echapper(s.motif)}</p>` : ''}
-        ${s.placeConservee ? '<p>Le code n\'est pas consommé : rescannez dès qu\'une place se libère.</p>' : ''}
       </div>` : ''}
     <div class="bloc">
       <h3>Scanner un code</h3>
-      <p class="discret">Le même code sert deux fois : une fois à l'arrivée du visiteur
-      dans la file, une fois pour le faire entrer. Le système reconnaît de
-      lui-même l'étape ; les deux boutons ci-dessous ne servent qu'à la forcer.</p>
+      <p class="discret">Scannez le code du visiteur à son arrivée dans la file.
+      Un code ne sert qu'une fois.</p>
       <label for="jeton">Code du visiteur (caméra ou saisie manuelle)</label>
       <input id="jeton" type="text" placeholder="tk_xxxxxxxx.xxxxxxx.xxxxxxxxxxxx" autocomplete="off">
       <div class="ligne">
         <button class="principal" data-action="scanner">Scanner</button>
         <button class="sobre" data-action="camera">Utiliser la caméra</button>
       </div>
-      <div class="ligne">
-        <button class="sobre" data-action="scanner" data-etape="ARRIVEE">Forcer : arrivée en file</button>
-        <button class="sobre" data-action="scanner" data-etape="ENTREE">Forcer : entrée en salle</button>
-      </div>
       <video id="video" playsinline style="display:none;width:100%;border-radius:8px;margin-top:10px"></video>
       <p class="discret">Le code tourne toutes les 30 secondes : une capture d'écran est refusée.</p>
     </div>`;
 }
 
-const ZONES = {
-  FILE_REELLE: ['FILE_REELLE', 'devant l\'attraction'],
-  EN_ROUTE: ['CONVOQUE', 'en route'],
-  VIRTUELLE: ['', 'dans le parc'],
-};
-
 function blocFileAgent() {
-  const etatLisible = (t) => {
-    if (t.zone === 'FILE_REELLE') return `arrivé à ${t.heureArrivee} · ${t.attenteFileReelleMin} min sur place`;
-    if (t.zone === 'EN_ROUTE') return `convoqué · ${t.resteConvocationSec}s pour arriver`;
-    return 'en attente dans le parc';
-  };
+  const etatLisible = (t) => (t.zone === 'EN_ROUTE'
+    ? `convoqué · ${t.resteConvocationSec}s pour arriver`
+    : 'en attente dans le parc');
 
   const lignes = (S.agent?.file || []).map((t) => `<tr>
       <td>${t.position}</td>
-      <td><span class="etiquette ${ZONES[t.zone]?.[0] || ''}">${ZONES[t.zone]?.[1] || t.zone}</span></td>
       <td><span class="etiquette ${t.statut}">${echapper(t.libelleStatut)}</span></td>
       <td>${echapper(t.visiteur)}</td>
       <td class="discret">${t.heureInscription}</td>
@@ -573,12 +547,12 @@ function blocFileAgent() {
 
   return `<div class="bloc">
       <h3>File en cours</h3>
-      <p class="discret">Dans l'ordre où vous les rencontrerez : d'abord ceux qui patientent
-      devant l'attraction, puis ceux qui s'y rendent, puis la file virtuelle.
+      <p class="discret">Dans l'ordre où vous les rencontrerez : d'abord les convoqués qui se
+      rendent à l'attraction, puis la file virtuelle. Un visiteur scanné sort de la liste.
       Aucun bouton d'ajout : la file ne s'alimente que par les inscriptions des visiteurs.</p>
       <div class="defilant"><table>
-        <thead><tr><th>#</th><th>Où</th><th>Statut</th><th>Visiteur</th><th>Inscrit</th><th>État</th><th>Garantie</th><th></th></tr></thead>
-        <tbody>${lignes || '<tr><td colspan="8" class="vide-liste">File vide.</td></tr>'}</tbody>
+        <thead><tr><th>#</th><th>Statut</th><th>Visiteur</th><th>Inscrit</th><th>État</th><th>Garantie</th><th></th></tr></thead>
+        <tbody>${lignes || '<tr><td colspan="7" class="vide-liste">File vide.</td></tr>'}</tbody>
       </table></div>
     </div>`;
 }
@@ -607,7 +581,7 @@ function blocIncidents() {
       <button class="sobre" data-action="incidents-charger">Actualiser</button>
       <div class="defilant"><table><tbody>
         ${(S.incidents?.scans || []).map((s) => `<tr>
-          <td>${echapper(s.verdict)}</td><td class="discret">${echapper(s.etape || '')}</td>
+          <td>${echapper(s.verdict)}</td>
           <td class="discret">${echapper(s.motif || '')}</td>
           <td class="discret">${echapper(s.ticketId || '')}</td></tr>`).join('')
           || '<tr><td class="vide-liste">Aucun scan enregistré.</td></tr>'}
@@ -621,7 +595,8 @@ function ecranAdmin() {
   if (!S.vue) return '<p class="chargement">Connexion au flux temps réel…</p>';
   const onglets = barreOnglets([
     ['apercu', 'Vue d\'ensemble'], ['attentes', 'Temps d\'attente'],
-    ['affluence', 'Affluence'], ['regles', 'Règles'], ['audit', 'Audit'], ['file', 'File'],
+    ['affluence', 'Affluence'], ['regles', 'Règles'], ['audit', 'Log'], ['file', 'File'],
+    ['utilisateurs', 'Utilisateur'],
   ]);
   if (!S.admin) return onglets + '<p class="chargement">Chargement…</p>';
   if (S.onglet === 'attentes') return onglets + blocAttentes();
@@ -629,6 +604,7 @@ function ecranAdmin() {
   if (S.onglet === 'regles') return onglets + blocReglesAdmin();
   if (S.onglet === 'audit') return onglets + blocAudit();
   if (S.onglet === 'file') return onglets + blocFileAgent();
+  if (S.onglet === 'utilisateurs') return onglets + blocUtilisateurs();
   return onglets + blocApercu();
 }
 
@@ -637,15 +613,13 @@ function blocApercu() {
   const ind = (valeur, titre) => `<div class="indicateur"><div class="valeur">${valeur}</div><div class="titre">${titre}</div></div>`;
   return `<div class="indicateurs">
       ${ind(m.totaux.enAttente, 'dans la file')}
-      ${ind(m.totaux.entres, 'entrées validées')}
-      ${ind(m.totaux.enFileReelle, 'devant l\'attraction')}
+      ${ind(m.totaux.valides, 'codes validés')}
+      ${ind(`≈ ${m.totaux.enFileReelle}`, 'devant l\'attraction (estimé)')}
       ${ind(`${m.remplissage.sallePct} %`, 'remplissage salle')}
-      ${ind(`${m.remplissage.fileReellePct} %`, 'remplissage file réelle')}
-      ${ind(`${m.fileReelle.sejourMoyenMin} min`, 'attente moyenne sur place')}
+      ${ind(`${m.remplissage.fileReellePct} %`, 'remplissage file réelle (estimé)')}
       ${ind(`${m.garantieSaiyanPct} %`, 'garantie Saiyan tenue')}
       ${ind(`${m.ecartAnnonceReelPct} %`, 'écart annoncé / réel')}
       ${ind(`${m.absences.tauxPct} %`, 'absences à la convocation')}
-      ${ind(m.fileReelle.refusSallePleine, 'scans refusés salle pleine')}
       ${ind(m.finDeJournee.ticketsNonServis, 'non servis à la fermeture')}
       ${ind(`${m.finDeJournee.tauxDesistementPct} %`, 'désistements')}
       ${ind(`${m.incidents.dureeCumuleeMin} min`, `indisponibilité (${m.incidents.nombre} incidents)`)}
@@ -694,8 +668,10 @@ function blocAffluence() {
       <h3>File d'attente devant l'attraction</h3>
       <div class="chiffre">${v.fileReelle.occupation}<span class="unite"> / ${v.fileReelle.capacite} places</span></div>
       <div class="jauge ${pctFile >= 90 ? 'pleine' : ''}"><span style="width:${pctFile}%"></span></div>
-      <p class="discret">${v.fileReelle.presents} personne(s) sur place, ${v.fileReelle.enRoute} en route.
-      L'ordonnanceur convoque tant qu'il reste des places, et s'arrête à ${v.fileReelle.capacite}.</p>
+      <p class="discret">Environ ${v.fileReelle.presents} personne(s) sur place, ${v.fileReelle.enRoute} en route.
+      L'entrée dans la salle n'étant pas scannée, le nombre de personnes sur place est estimé
+      à partir des scans et du débit. L'ordonnanceur convoque tant qu'il reste des places,
+      et s'arrête à ${v.fileReelle.capacite}.</p>
     </div>
     <div class="bloc">
       <h3>Débit</h3>
@@ -764,11 +740,10 @@ function blocReglesAdmin() {
     <div class="bloc">
       <h3>Jeu de données</h3>
       <p class="discret">Les visiteurs suivent le vrai parcours : inscription, convocation,
-      scan d'arrivée, scan d'entrée. Rien n'est écrit directement dans le journal.</p>
+      scan à l'entrée de la file réelle. Rien n'est écrit directement dans le journal.</p>
       <div class="ligne">
         <div><label for="nombre">Inscrits</label><input id="nombre" type="number" value="24"></div>
-        <div><label for="arrivees">Dont arrivés en file réelle</label><input id="arrivees" type="number" value="12"></div>
-        <div><label for="entrees">Dont entrés en salle</label><input id="entrees" type="number" value="6"></div>
+        <div><label for="scannes">Dont scannés</label><input id="scannes" type="number" value="12"></div>
       </div>
       <button class="sobre" data-action="seed">Peupler les trois étages</button>
     </div>`;
@@ -780,11 +755,43 @@ function blocAudit() {
       <td>${echapper(a.acteur)}</td><td>${echapper(a.action)}</td>
       <td class="discret">${echapper(a.details)}</td></tr>`).join('');
   return `<div class="bloc">
-      <h3>Journal d'audit</h3>
+      <h3>Log</h3>
       <p class="discret">Toutes les actions des opérateurs, conservées 12 mois.</p>
       <div class="defilant"><table>
         <thead><tr><th>Heure</th><th>Acteur</th><th>Action</th><th>Détail</th></tr></thead>
         <tbody>${lignes || '<tr><td colspan="4" class="vide-liste">Aucune action.</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+}
+
+/**
+ * Onglet Utilisateur : l'administrateur corrige les informations d'un visiteur
+ * (prenom, initiale, statut, aptitude). Chaque ligne s'enregistre a part.
+ */
+function blocUtilisateurs() {
+  const statuts = S.vue.statuts;
+  const lignes = (S.admin.utilisateurs || []).map((u) => `<tr>
+      <td class="discret">${echapper(u.email)}<br>${echapper(u.refBillet)}</td>
+      <td><input id="u-prenom-${u.id}" value="${echapper(u.prenom)}"></td>
+      <td><input id="u-initiale-${u.id}" value="${echapper(u.initiale)}" maxlength="3" style="width:4em"></td>
+      <td><select id="u-statut-${u.id}">${Object.entries(statuts).map(([code, st]) => `
+        <option value="${code}" ${u.statut === code ? 'selected' : ''}>${echapper(st.libelle)}</option>`).join('')}
+      </select></td>
+      <td><select id="u-apte-${u.id}">
+        ${u.apte === null ? '<option value="" selected>Non déclaré</option>' : ''}
+        <option value="1" ${u.apte === true ? 'selected' : ''}>Apte</option>
+        <option value="0" ${u.apte === false ? 'selected' : ''}>Pas apte</option>
+      </select></td>
+      <td><button class="sobre" data-action="enregistrer-utilisateur" data-id="${u.id}">Enregistrer</button></td>
+    </tr>`).join('');
+
+  return `<div class="bloc">
+      <h3>Utilisateurs</h3>
+      <p class="discret">Toute modification est tracée dans le log. Un changement de statut
+      vaut pour les prochaines inscriptions du visiteur.</p>
+      <div class="defilant"><table>
+        <thead><tr><th>E-mail / billet</th><th>Prénom</th><th>Initiale</th><th>Statut</th><th>Aptitude</th><th></th></tr></thead>
+        <tbody>${lignes || '<tr><td colspan="6" class="vide-liste">Aucun utilisateur.</td></tr>'}</tbody>
       </table></div>
     </div>`;
 }
@@ -816,7 +823,7 @@ let cacheJeton = { jeton: null, expireA: 0 };
 
 async function dessinerQr() {
   const boite = document.getElementById('qr');
-  if (!boite || !['CONVOQUE', 'EN_FILE_REELLE'].includes(S.moi?.ticket?.etat)) {
+  if (!boite || S.moi?.ticket?.etat !== 'CONVOQUE') {
     cacheJeton = { jeton: null, expireA: 0 };
     return;
   }
@@ -911,14 +918,9 @@ async function executer(action, data) {
 
     case 'scanner': {
       try {
-        S.scan = await api('POST', '/api/agent/scans', {
-          jeton: valeur('jeton'),
-          etape: data.etape || 'AUTO',   // sans precision, le serveur deduit l'etape
-        });
-        // Apres une arrivee enregistree, le code resservira pour l'entree : on
-        // le laisse dans le champ pour que l'agent n'ait qu'a rescanner.
+        S.scan = await api('POST', '/api/agent/scans', { jeton: valeur('jeton') });
         const champ = document.getElementById('jeton');
-        if (champ && S.scan.verdict !== 'ARRIVEE') champ.value = '';
+        if (champ) champ.value = '';
         return rafraichir();
       } catch (e) { return annoncer(e.message, 'erreur'); }
     }
@@ -956,6 +958,17 @@ async function executer(action, data) {
       return rendre();
     }
 
+    case 'enregistrer-utilisateur': {
+      const id = data.id;
+      const apte = valeur(`u-apte-${id}`);
+      return agir(() => api('PUT', `/api/admin/users/${encodeURIComponent(id)}`, {
+        prenom: valeur(`u-prenom-${id}`),
+        initiale: valeur(`u-initiale-${id}`),
+        statut: valeur(`u-statut-${id}`),
+        apte: apte === '' ? null : apte === '1',
+      }), 'Utilisateur mis à jour.');
+    }
+
     case 'capteur':
       return agir(() => api('PUT', '/api/mock/sensors', { occupation: valeur('occupation') || null }));
 
@@ -983,8 +996,7 @@ async function executer(action, data) {
     case 'seed':
       return agir(() => api('POST', '/api/admin/seed', {
         nombre: Number(valeur('nombre')),
-        arrivees: Number(valeur('arrivees')),
-        entrees: Number(valeur('entrees')),
+        scannes: Number(valeur('scannes')),
       }), 'File peuplée.');
   }
 }
@@ -1035,9 +1047,6 @@ rafraichir();
 
 // Compte a rebours : seul rafraichissement a la seconde, et uniquement quand un
 // ticket est convoque. Le reste de l'interface suit le rythme du serveur.
-// Seul l'etat CONVOQUE a un compte a rebours. Une fois dans la file reelle, le
-// visiteur est arrive : il n'y a plus rien a decompter, et surtout plus rien
-// qui puisse lui faire perdre sa place.
 setInterval(() => {
   if (S.role === 'visiteur' && S.moi?.ticket?.etat === 'CONVOQUE') rendre();
 }, 1000);

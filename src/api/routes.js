@@ -24,7 +24,7 @@ import {
   enregistrerVisiteur, donnerConsentements, declarerAptitude,
   rejoindreFile, seDesister, retirerTicket,
   mettreEnPause, reprendre, purger, rouvrirFile,
-  ouvrirIncident, cloreIncident, scanner, modifierRegles, ETAPES_SCAN,
+  ouvrirIncident, cloreIncident, scanner, modifierRegles, modifierVisiteur,
 } from '../domain/commands.js';
 import { envoyer, messages } from '../infra/mailer.js';
 import { dernierReleve, forcerOccupation, releverCapteur } from '../infra/sensor.js';
@@ -34,7 +34,7 @@ import {
   creerLienMagique, verifierLienMagique, creerSession,
   exigerRole, exigerVisiteur,
 } from './auth.js';
-import { vueFile, vueTicket, vueFileAgent, vueMetriques } from './views.js';
+import { vueFile, vueTicket, vueFileAgent, vueMetriques, vueUtilisateurs } from './views.js';
 
 /** Flux SSE ouverts. */
 const flux = new Set();
@@ -179,9 +179,9 @@ export function enregistrerRoutes(app) {
     const v = exigerVisiteur(ctx);
     const t = etat().tickets[ctx.params.id];
     if (!t || t.visiteurId !== v.id) throw erreurHttp(404, 'Ticket introuvable');
-    // Le code s'active a la convocation et reste actif dans la file reelle : il
-    // doit servir deux fois, a l'arrivee puis a l'entree.
-    if (![ETATS_TICKET.CONVOQUE, ETATS_TICKET.EN_FILE_REELLE].includes(t.etat)) {
+    // Le code s'active a la convocation et sert une seule fois, au scan a
+    // l'entree de la file reelle.
+    if (t.etat !== ETATS_TICKET.CONVOQUE) {
       throw new ErreurMetier('Le code n\'est actif qu\'une fois convoqué', 'NON_CONVOQUE');
     }
     return genererJeton(t.id, etat().regles.validiteJetonQrSec);
@@ -192,34 +192,12 @@ export function enregistrerRoutes(app) {
   /* ==================================================================== */
 
   /**
-   * Scan du QR code. Le MEME code est presente deux fois dans le parcours :
-   *   - a l'arrivee dans la file reelle, pour arreter le compte a rebours ;
-   *   - a l'entree dans la salle, quand une place se libere.
-   * Sans `etape`, le systeme deduit laquelle des deux a partir de l'etat du
-   * ticket : l'agent n'a qu'un geste a faire, toujours le meme.
+   * Scan du QR code, a l'entree de la file reelle. C'est le seul scan du
+   * parcours : l'entree dans la salle se fait ensuite sans verification.
    */
   app.post('/api/agent/scans', (ctx) => {
     const s = exigerRole(ctx, 'agent', 'admin');
-    const etape = ctx.body.etape || ETAPES_SCAN.AUTO;
-    const resultat = scanner(ctx.body.jeton, s.role, etape);
-    ordonnancer(etat());
-    diffuserEtat();
-    return resultat;
-  });
-
-  // Alias explicites, utiles si le poste d'entree de file et le poste de porte
-  // sont deux terminaux distincts.
-  app.post('/api/agent/scans/arrivee', (ctx) => {
-    const s = exigerRole(ctx, 'agent', 'admin');
-    const resultat = scanner(ctx.body.jeton, s.role, ETAPES_SCAN.ARRIVEE);
-    ordonnancer(etat());
-    diffuserEtat();
-    return resultat;
-  });
-
-  app.post('/api/agent/scans/entree', (ctx) => {
-    const s = exigerRole(ctx, 'agent', 'admin');
-    const resultat = scanner(ctx.body.jeton, s.role, ETAPES_SCAN.ENTREE);
+    const resultat = scanner(ctx.body.jeton, s.role);
     ordonnancer(etat());
     diffuserEtat();
     return resultat;
@@ -333,6 +311,23 @@ export function enregistrerRoutes(app) {
     return { regles };
   });
 
+  // Onglet « Utilisateurs » : consultation et correction des visiteurs.
+  app.get('/api/admin/users', (ctx) => {
+    exigerRole(ctx, 'admin');
+    return { utilisateurs: vueUtilisateurs(etat()) };
+  });
+
+  app.put('/api/admin/users/:id', (ctx) => {
+    const s = exigerRole(ctx, 'admin');
+    if (!etat().visiteurs[ctx.params.id] || etat().visiteurs[ctx.params.id].efface) {
+      throw erreurHttp(404, 'Utilisateur introuvable');
+    }
+    const { prenom, initiale, statut, apte } = ctx.body;
+    modifierVisiteur(ctx.params.id, { prenom, initiale, statut, apte }, s.role);
+    diffuserEtat();
+    return { utilisateurs: vueUtilisateurs(etat()) };
+  });
+
   app.get('/api/admin/audit-logs', (ctx) => {
     exigerRole(ctx, 'admin');
     return { audit: etat().audit.slice(-200).reverse() };
@@ -357,8 +352,7 @@ export function enregistrerRoutes(app) {
   app.post('/api/admin/seed', (ctx) => {
     exigerRole(ctx, 'admin');
     const resultat = semer(Number(ctx.body.nombre) || 24, {
-      arrivees: Number(ctx.body.arrivees) || 0,
-      entrees: Number(ctx.body.entrees) || 0,
+      scannes: Number(ctx.body.scannes) || 0,
     });
     diffuserEtat();
     return resultat;

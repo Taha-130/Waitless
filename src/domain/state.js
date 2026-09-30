@@ -20,38 +20,31 @@ import { REGLES_PAR_DEFAUT } from '../config/rules.js';
 /**
  * Etats possibles d'un ticket, dans l'ordre du parcours reel :
  *
- *   EN_ATTENTE ──convocation──> CONVOQUE ──1er scan──> EN_FILE_REELLE ──2e scan──> ENTRE
+ *   EN_ATTENTE ──convocation──> CONVOQUE ──scan──> VALIDE
  *                                   │
  *                                   └──delai depasse──> EXPIRE
  *
- * EN_FILE_REELLE est l'etape ajoutee par le modele a trois etages : le visiteur
- * a quitte le parc, il patiente physiquement devant l'attraction. Il n'expire
- * plus, puisqu'il est la ; il attend qu'une place se libere dans la salle.
+ * Il n'y a qu'UN scan, a l'entree de la file reelle. L'agent y verifie le QR
+ * code : le ticket est alors VALIDE, et consomme. Un second agent, sans
+ * application, fait ensuite entrer les visiteurs dans la salle, sans nouvelle
+ * verification. Le systeme ne sait donc pas qui est encore dans la file reelle
+ * et qui est deja dans la salle : pour lui, le parcours s'arrete au scan.
  */
 export const ETATS_TICKET = {
   EN_ATTENTE: 'EN_ATTENTE',
   CONVOQUE: 'CONVOQUE',
-  EN_FILE_REELLE: 'EN_FILE_REELLE',
-  ENTRE: 'ENTRE',
+  VALIDE: 'VALIDE',   // QR scanne a l'entree de la file reelle, code consomme
   EXPIRE: 'EXPIRE',
   ANNULE: 'ANNULE',   // desistement du visiteur (RG-14)
   RETIRE: 'RETIRE',   // retrait par l'agent (RG-11)
   PURGE: 'PURGE',     // purge de la file
 };
 
-/** Un ticket « vivant » occupe une place dans l'un des deux etages d'attente. */
+/** Un ticket « vivant » : dans le parc, ou convoque et en route. */
 export const ETATS_ACTIFS = [
   ETATS_TICKET.EN_ATTENTE,
   ETATS_TICKET.CONVOQUE,
-  ETATS_TICKET.EN_FILE_REELLE,
 ];
-
-/**
- * Etats qui occupent une place dans la FILE REELLE : celui qui y est deja, et
- * celui qui est en route avec une place qui lui est reservee. Compter les deux
- * est ce qui empeche de depasser les 30 places (RG-16).
- */
-export const ETATS_FILE_REELLE = [ETATS_TICKET.CONVOQUE, ETATS_TICKET.EN_FILE_REELLE];
 
 export function etatInitial() {
   return {
@@ -123,6 +116,13 @@ export function appliquer(state, ev) {
       break;
     }
 
+    // Correction des informations d'un visiteur par l'administrateur.
+    case 'VISITEUR_MODIFIE': {
+      const v = state.visiteurs[ev.visiteurId];
+      if (v) Object.assign(v, ev.modifications);
+      break;
+    }
+
     case 'VISITEUR_EFFACE': {
       // RGPD, droit a l'effacement. On ne supprime pas la ligne du journal
       // (elle serait irrecuperable pour la reprise) : on efface les donnees
@@ -149,8 +149,7 @@ export function appliquer(state, ev) {
         estimationInitialeMin: ev.estimationMin,
         convoqueA: null,            // appel vers la file reelle
         rappeleA: null,
-        arriveA: null,              // 1er scan : arrivee dans la file reelle
-        entreA: null,               // 2e scan : entree dans la Salle du Temps
+        valideA: null,              // scan a l'entree de la file reelle
         termineA: null,
         avertiFinJournee: false,
         motif: null,
@@ -180,26 +179,15 @@ export function appliquer(state, ev) {
       break;
     }
 
-    // Premier scan : le visiteur convoque est arrive devant l'attraction. Son
-    // compte a rebours s'arrete ici — il est physiquement present, il ne peut
-    // plus etre declare absent (RG-10).
-    case 'TICKET_ARRIVE_FILE_REELLE': {
+    // Le scan : le visiteur convoque est arrive a l'entree de la file reelle.
+    // Son code est consomme ; il ne peut plus expirer (RG-10).
+    case 'TICKET_VALIDE': {
       const t = state.tickets[ev.ticketId];
       if (t) {
-        t.etat = ETATS_TICKET.EN_FILE_REELLE;
-        t.arriveA = ev.ts;
-        t.pendantGrace = !!ev.pendantGrace;
-      }
-      break;
-    }
-
-    // Second scan : une place s'est liberee, le visiteur entre dans la salle.
-    case 'TICKET_ENTRE': {
-      const t = state.tickets[ev.ticketId];
-      if (t) {
-        t.etat = ETATS_TICKET.ENTRE;
-        t.entreA = ev.ts;
+        t.etat = ETATS_TICKET.VALIDE;
+        t.valideA = ev.ts;
         t.termineA = ev.ts;
+        t.pendantGrace = !!ev.pendantGrace;
       }
       break;
     }
@@ -278,7 +266,7 @@ export function appliquer(state, ev) {
   if (ev.acteur && ev.acteur !== 'systeme') {
     state.audit.push({
       ts: ev.ts, acteur: ev.acteur, action: ev.type,
-      details: ev.motif ?? ev.ticketId ?? ev.verdict ?? '',
+      details: ev.motif ?? ev.details ?? ev.ticketId ?? ev.verdict ?? '',
     });
   }
 
@@ -308,27 +296,11 @@ export function ticketsConvoques(state) {
   return Object.values(state.tickets).filter((t) => t.etat === ETATS_TICKET.CONVOQUE);
 }
 
-/**
- * Etage 2 : la file reelle, devant l'attraction.
- * L'ordre y est PHYSIQUE : premier arrive, premier entre. Les priorites de
- * statut ont deja joue au moment de la convocation ; a ce stade, tout le monde
- * est dans la meme file et il serait incomprehensible de doubler quelqu'un qui
- * est la, sous les yeux des autres.
- */
-export function ticketsFileReelle(state) {
+/** Tickets scannes a l'entree de la file reelle, dans l'ordre du scan. */
+export function ticketsValides(state) {
   return Object.values(state.tickets)
-    .filter((t) => t.etat === ETATS_TICKET.EN_FILE_REELLE)
-    .sort((a, b) => a.arriveA - b.arriveA);
-}
-
-/** Places occupees ou reservees dans la file reelle (arrives + en route). */
-export function occupationFileReelle(state) {
-  return Object.values(state.tickets).filter((t) => ETATS_FILE_REELLE.includes(t.etat)).length;
-}
-
-/** Places encore libres dans la file reelle (RG-16). */
-export function placesFileReelle(state) {
-  return Math.max(0, state.regles.capaciteFileReelle - occupationFileReelle(state));
+    .filter((t) => t.etat === ETATS_TICKET.VALIDE)
+    .sort((a, b) => a.valideA - b.valideA);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -361,33 +333,16 @@ function fractionStable(texte) {
 /**
  * Occupation estimee de la salle, utilisee UNIQUEMENT comme repli du capteur.
  * Des qu'une URL de capteur est configuree, c'est le capteur qui fait foi.
+ *
+ * L'entree dans la salle n'etant pas scannee, on prend l'heure du scan comme
+ * heure d'entree approximative, et on borne a la capacite de la salle.
  */
 export function occupationSalleEstimee(state, maintenantMs) {
-  return Object.values(state.tickets).filter(
-    (t) => t.etat === ETATS_TICKET.ENTRE
-      && tempsActifEcoule(state, t.entreA, maintenantMs) < dureeSejourSupposeeSec(state, t) * 1000,
+  const presents = Object.values(state.tickets).filter(
+    (t) => t.etat === ETATS_TICKET.VALIDE
+      && tempsActifEcoule(state, t.valideA, maintenantMs) < dureeSejourSupposeeSec(state, t) * 1000,
   ).length;
-}
-
-/**
- * Occupation de la salle corrigee des entrees posterieures au dernier releve.
- *
- * Le capteur n'est interroge qu'a chaque battement. Sans cette correction, un
- * agent qui scanne cinq visiteurs en trois secondes les ferait tous entrer sur
- * la foi d'un releve qui date d'avant le premier : la salle depasserait ses 50
- * places. On ajoute donc les entrees connues depuis le releve. Les sorties, on
- * ne les connait pas — et c'est tant mieux : se tromper dans ce sens ferme la
- * porte une minute de trop, jamais l'inverse.
- *
- * @param {object} state
- * @param {{occupation:number, ts:number}} releve dernier releve du capteur
- */
-export function occupationSalleCorrigee(state, releve) {
-  const depuis = releve?.ts ?? 0;
-  const entresDepuis = Object.values(state.tickets).filter(
-    (t) => t.entreA !== null && t.entreA > depuis,
-  ).length;
-  return Math.max(0, releve?.occupation ?? 0) + entresDepuis;
+  return Math.min(state.regles.capaciteSalle, presents);
 }
 
 /**
@@ -413,8 +368,8 @@ export function ticketActifDe(state, visiteurId) {
 /**
  * Ticket actif s'il y en a un, sinon le dernier de la journee.
  *
- * Sert aux ecrans du visiteur, et a rien d'autre : sans cela, quelqu'un qui
- * vient d'entrer dans la salle — ou dont la convocation a expire — verrait son
+ * Sert aux ecrans du visiteur, et a rien d'autre : sans cela, quelqu'un dont
+ * le code vient d'etre scanne — ou dont la convocation a expire — verrait son
  * ticket disparaitre sans un mot, et se demanderait si son passage a bien ete
  * enregistre. Les regles, elles, continuent de ne regarder que le ticket ACTIF.
  */

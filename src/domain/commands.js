@@ -16,8 +16,8 @@
 import { maintenant, minutesDuJour, timestampDuJour } from './clock.js';
 import { etat, publier, nouvelId } from './eventStore.js';
 import {
-  ETATS_TICKET, ticketActifDe, ticketsEnAttente, ticketsConvoques, ticketsFileReelle,
-  occupationSalleCorrigee, tempsActifEcoule, comparerOrdrePassage,
+  ETATS_TICKET, ticketActifDe, ticketsEnAttente, ticketsConvoques,
+  tempsActifEcoule, comparerOrdrePassage,
 } from './state.js';
 import { estimer } from './estimator.js';
 import { verifierJeton } from './qr.js';
@@ -39,19 +39,9 @@ export const TEXTES = {
   DECHARGE: { type: 'DECHARGE_PESANTEUR', version: '1.0' },
 };
 
-/**
- * Les deux etapes du parcours d'un meme QR code.
- *   ARRIVEE : le visiteur convoque se presente a la file reelle.
- *   ENTREE  : une place s'est liberee, il entre dans la Salle du Temps.
- * AUTO laisse le systeme deduire l'etape de l'etat du ticket, ce qui permet a
- * l'agent de garder un seul geste : il scanne, le systeme sait ou en est le
- * visiteur.
- */
-export const ETAPES_SCAN = { AUTO: 'AUTO', ARRIVEE: 'ARRIVEE', ENTREE: 'ENTREE' };
-
-/** Occupation de la salle a cet instant, corrigee des entrees non encore vues. */
-export function occupationSalle(state = etat()) {
-  return occupationSalleCorrigee(state, dernierReleve());
+/** Occupation de la salle a cet instant, telle que le capteur la voit. */
+export function occupationSalle() {
+  return Math.max(0, dernierReleve().occupation ?? 0);
 }
 
 /* ======================================================================== */
@@ -102,6 +92,51 @@ export function donnerConsentements(visiteurId, { cgu, decharge }) {
 export function declarerAptitude(visiteurId, apte) {
   exigerVisiteur(visiteurId);
   publier('APTITUDE_DECLAREE', { visiteurId, apte: !!apte });
+  return etat().visiteurs[visiteurId];
+}
+
+/**
+ * Correction par l'administrateur des informations d'un visiteur : prenom,
+ * initiale, statut, aptitude. L'e-mail (identifiant de connexion) et la
+ * reference de billet ne se modifient pas ici.
+ *
+ * Le statut modifie vaut pour les prochaines inscriptions : un ticket deja
+ * cree garde le statut avec lequel il a ete pris.
+ */
+export function modifierVisiteur(visiteurId, champs = {}, acteur = 'admin') {
+  const v = exigerVisiteur(visiteurId);
+  const regles = etat().regles;
+  const modifications = {};
+
+  if (champs.prenom !== undefined) {
+    const prenom = String(champs.prenom).trim();
+    if (!prenom) throw new ErreurMetier('Le prénom ne peut pas être vide', 'CHAMP_INVALIDE');
+    modifications.prenom = prenom;
+  }
+  if (champs.initiale !== undefined) {
+    const initiale = String(champs.initiale).trim();
+    if (!initiale || initiale.length > 3) {
+      throw new ErreurMetier("L'initiale doit faire de 1 à 3 caractères", 'CHAMP_INVALIDE');
+    }
+    modifications.initiale = initiale;
+  }
+  if (champs.statut !== undefined) {
+    if (!regles.statuts[champs.statut]) throw new ErreurMetier('Statut inconnu', 'CHAMP_INVALIDE');
+    modifications.statut = champs.statut;
+  }
+  if (champs.apte !== undefined && champs.apte !== null) {
+    modifications.apte = !!champs.apte;
+  }
+
+  // On ne trace que ce qui change vraiment.
+  for (const [cle, valeur] of Object.entries(modifications)) {
+    if (v[cle] === valeur) delete modifications[cle];
+  }
+  if (!Object.keys(modifications).length) return v;
+
+  const details = `${visiteurId} : ${Object.entries(modifications)
+    .map(([cle, valeur]) => `${cle}=${valeur}`).join(', ')}`;
+  publier('VISITEUR_MODIFIE', { visiteurId, modifications, acteur, details });
   return etat().visiteurs[visiteurId];
 }
 
@@ -213,17 +248,12 @@ export function seDesister(visiteurId) {
 /* Actions de l'agent (RG-11, RG-12)                                        */
 /* ======================================================================== */
 
-/**
- * Retrait par un agent. Vaut pour les trois etats actifs, y compris un visiteur
- * present dans la file reelle : c'est desormais la seule facon de liberer la
- * place de quelqu'un qui est parti sans le dire, puisque la file reelle
- * n'expire plus toute seule.
- */
+/** Retrait par un agent, d'un visiteur encore dans le parc ou en route. */
 export function retirerTicket(ticketId, motif, acteur) {
   exigerMotif(motif);
   const t = etat().tickets[ticketId];
   if (!t) throw new ErreurMetier('Ticket introuvable', 'TICKET_INTROUVABLE');
-  if (![ETATS_TICKET.EN_ATTENTE, ETATS_TICKET.CONVOQUE, ETATS_TICKET.EN_FILE_REELLE].includes(t.etat)) {
+  if (![ETATS_TICKET.EN_ATTENTE, ETATS_TICKET.CONVOQUE].includes(t.etat)) {
     throw new ErreurMetier('Ce ticket n\'est plus actif', 'TICKET_INACTIF');
   }
   publier('TICKET_RETIRE', { ticketId, motif, acteur });
@@ -236,9 +266,9 @@ export function retirerTicket(ticketId, motif, acteur) {
   return etat().tickets[ticketId];
 }
 
-/** Tous les visiteurs encore engages, les deux etages confondus. */
+/** Tous les visiteurs dont le ticket est encore actif : dans le parc ou en route. */
 function ticketsConcernes(state) {
-  return [...ticketsEnAttente(state), ...ticketsConvoques(state), ...ticketsFileReelle(state)];
+  return [...ticketsEnAttente(state), ...ticketsConvoques(state)];
 }
 
 /** RG-12 : la pause gele tous les compteurs et informe les visiteurs. */
@@ -313,39 +343,29 @@ export function cloreIncident(incidentId, acteur) {
 }
 
 /* ======================================================================== */
-/* Les deux scans (F-08, F-11, RG-09, RG-17)                                */
+/* Le scan (F-08, F-11, RG-09)                                              */
 /* ======================================================================== */
 
 /**
  * Verdict de scan. Toujours un verdict explicite et un motif en cas de refus :
  * l'agent doit pouvoir expliquer le refus au visiteur en une phrase.
  *
- * Le MEME QR code est presente deux fois, et c'est l'etat du ticket qui dit de
- * quelle etape il s'agit :
- *
- *   CONVOQUE        -> ARRIVEE : le visiteur est bien venu. Son compte a
- *                     rebours s'arrete, il prend place dans la file reelle et
- *                     ne peut plus etre declare absent.
- *   EN_FILE_REELLE  -> ENTREE  : une place s'est liberee dans la salle, il
- *                     entre. Le code est alors consomme, definitivement.
- *
- * Le second scan est le seul endroit du systeme ou la capacite de la salle est
- * opposee a quelqu'un. Et le refus « salle pleine » ne consomme PAS le code :
- * le visiteur garde sa place et son rang, l'agent rescanne des qu'une place se
- * libere. C'est la difference entre un plafond et une punition.
+ * Il n'y a qu'un scan, a l'entree de la file reelle. L'agent verifie le QR
+ * code, et c'est tout : un code valide consomme le ticket. L'entree dans la
+ * salle est geree ensuite par un second agent, sans application et sans
+ * nouvelle verification — c'est lui qui regarde le capteur et laisse entrer.
  *
  * @param {string} jeton
- * @param {string} acteur         agent | admin
- * @param {string} etapeDemandee  AUTO (defaut) | ARRIVEE | ENTREE
+ * @param {string} acteur  agent | admin
  */
-export function scanner(jeton, acteur, etapeDemandee = ETAPES_SCAN.AUTO) {
+export function scanner(jeton, acteur) {
   const s = etat();
   const now = maintenant();
   const scanId = nouvelId('scan');
 
-  const refus = (motif, ticketId = null, etape = null, extra = {}) => {
-    publier('SCAN_ENREGISTRE', { scanId, ticketId, verdict: 'REFUSE', etape, motif, acteur });
-    return { verdict: 'REFUSE', motif, ticketId, etape, ...extra };
+  const refus = (motif, ticketId = null, extra = {}) => {
+    publier('SCAN_ENREGISTRE', { scanId, ticketId, verdict: 'REFUSE', motif, acteur });
+    return { verdict: 'REFUSE', motif, ticketId, ...extra };
   };
 
   if (s.file.etat === 'EN_PAUSE') {
@@ -365,9 +385,9 @@ export function scanner(jeton, acteur, etapeDemandee = ETAPES_SCAN.AUTO) {
   const identite = v ? { prenom: v.prenom, initiale: v.initiale, statut: v.statut } : null;
 
   // --- Etats qui ne donnent droit a rien ---------------------------------
-  if (t.etat === ETATS_TICKET.ENTRE) return refus('Ticket déjà utilisé', t.id);
-  if (t.etat === ETATS_TICKET.EN_ATTENTE) return refus('Visiteur pas encore convoqué', t.id);
-  if (![ETATS_TICKET.CONVOQUE, ETATS_TICKET.EN_FILE_REELLE].includes(t.etat)) {
+  if (t.etat === ETATS_TICKET.VALIDE) return refus('Code déjà utilisé', t.id, { visiteur: identite });
+  if (t.etat === ETATS_TICKET.EN_ATTENTE) return refus('Visiteur pas encore convoqué', t.id, { visiteur: identite });
+  if (t.etat !== ETATS_TICKET.CONVOQUE) {
     return refus({
       ANNULE: 'Ticket annulé par le visiteur',
       RETIRE: 'Ticket retiré par un agent',
@@ -376,88 +396,31 @@ export function scanner(jeton, acteur, etapeDemandee = ETAPES_SCAN.AUTO) {
     }[t.etat] ?? 'Ticket inactif', t.id);
   }
 
-  // --- Quelle etape ? ----------------------------------------------------
-  const etape = etapeDemandee === ETAPES_SCAN.AUTO
-    ? (t.etat === ETATS_TICKET.CONVOQUE ? ETAPES_SCAN.ARRIVEE : ETAPES_SCAN.ENTREE)
-    : etapeDemandee;
+  // RG-09 : 10 minutes pour venir, puis un delai de grace. Les pauses ne
+  // comptent pas.
+  const ecouleSec = tempsActifEcoule(s, t.convoqueA, now) / 1000;
+  const limite = s.regles.delaiConvocationSec;
+  const limiteAvecGrace = limite + s.regles.delaiGraceSec;
 
-  if (etape === ETAPES_SCAN.ENTREE && t.etat === ETATS_TICKET.CONVOQUE) {
-    return refus("Arrivée non enregistrée — scannez d'abord à l'entrée de la file", t.id, etape, { visiteur: identite });
-  }
-  if (etape === ETAPES_SCAN.ARRIVEE && t.etat === ETATS_TICKET.EN_FILE_REELLE) {
-    return refus('Arrivée déjà enregistrée — ce visiteur attend dans la file', t.id, etape, { visiteur: identite });
-  }
-
-  /* --- Premier scan : arrivee dans la file reelle (RG-09) --------------- */
-
-  if (etape === ETAPES_SCAN.ARRIVEE) {
-    // RG-09 : 10 minutes pour venir, puis un delai de grace. Les pauses ne
-    // comptent pas. Le delai porte sur le TRAJET, pas sur l'attente qui suit.
-    const ecouleSec = tempsActifEcoule(s, t.convoqueA, now) / 1000;
-    const limite = s.regles.delaiConvocationSec;
-    const limiteAvecGrace = limite + s.regles.delaiGraceSec;
-
-    if (ecouleSec > limiteAvecGrace) {
-      publier('TICKET_EXPIRE', { ticketId: t.id, motif: 'Délai de convocation dépassé' });
-      return refus('Délai dépassé — le visiteur peut se réinscrire en fin de file', t.id, etape, { visiteur: identite });
-    }
-
-    // Note : rien a verifier sur la capacite de la file reelle ici. La place a
-    // ete reservee des la convocation (RG-16, applique dans l'ordonnanceur) ;
-    // l'arrivee ne fait que transformer une place reservee en place occupee.
-
-    const pendantGrace = ecouleSec > limite;
-    publier('SCAN_ENREGISTRE', {
-      scanId, ticketId: t.id, verdict: 'ARRIVEE', etape, acteur,
-      motif: pendantGrace ? 'Arrivée acceptée pendant le délai de grâce' : null,
-    });
-    publier('TICKET_ARRIVE_FILE_REELLE', { ticketId: t.id, pendantGrace, acteur });
-
-    const apres = etat();
-    const devant = ticketsFileReelle(apres).filter((x) => x.arriveA < apres.tickets[t.id].arriveA).length;
-    const places = Math.max(0, apres.regles.capaciteSalle - occupationSalle(apres));
-
-    return {
-      verdict: 'ARRIVEE',
-      etape,
-      pendantGrace,
-      ticketId: t.id,
-      visiteur: identite,
-      devantFileReelle: devant,
-      placesSalle: places,
-      motif: devant === 0 && places > 0
-        ? 'Peut entrer immédiatement — rescannez pour valider l\'entrée'
-        : `${devant} personne(s) devant lui dans la file`,
-    };
+  if (ecouleSec > limiteAvecGrace) {
+    publier('TICKET_EXPIRE', { ticketId: t.id, motif: 'Délai de convocation dépassé' });
+    return refus('Délai dépassé — le visiteur peut se réinscrire en fin de file', t.id, { visiteur: identite });
   }
 
-  /* --- Second scan : entree dans la Salle du Temps (RG-17) -------------- */
-
-  const occupation = occupationSalle(s);
-  const capacite = s.regles.capaciteSalle;
-
-  if (occupation >= capacite) {
-    // Refus SANS consommer le code : la place dans la file reelle est gardee.
-    return refus(
-      `Salle pleine (${occupation}/${capacite}) — le visiteur garde sa place, rescannez dès qu'une sortie est comptée`,
-      t.id, etape, { visiteur: identite, occupation, capacite, placeConservee: true },
-    );
-  }
-
-  publier('SCAN_ENREGISTRE', { scanId, ticketId: t.id, verdict: 'ACCEPTE', etape, acteur, motif: null });
-  publier('TICKET_ENTRE', { ticketId: t.id, acteur });
+  // Rien a verifier sur la capacite de la file reelle : la place a ete
+  // reservee des la convocation (RG-16, applique dans l'ordonnanceur).
+  const pendantGrace = ecouleSec > limite;
+  const motif = pendantGrace ? 'Accepté pendant le délai de grâce' : null;
+  publier('SCAN_ENREGISTRE', { scanId, ticketId: t.id, verdict: 'ACCEPTE', acteur, motif });
+  publier('TICKET_VALIDE', { ticketId: t.id, pendantGrace, acteur });
 
   return {
     verdict: 'ACCEPTE',
-    etape,
     ticketId: t.id,
     // Affiche a l'agent pour le controle visuel de la piece d'identite.
     visiteur: identite,
-    occupation: occupation + 1,
-    capacite,
-    attenteFileReelleMin: t.arriveA
-      ? Math.round(tempsActifEcoule(s, t.arriveA, now) / 60_000) : null,
-    motif: null,
+    pendantGrace,
+    motif,
   };
 }
 

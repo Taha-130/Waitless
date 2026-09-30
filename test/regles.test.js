@@ -5,7 +5,8 @@
  *   node --test test/*.test.js
  *
  * Un test par regle critique, plus les regles propres au modele a trois etages
- * (file virtuelle -> file reelle -> Salle du Temps). Aucun serveur n'est
+ * (file virtuelle -> file reelle -> Salle du Temps), avec un seul scan a
+ * l'entree de la file reelle. Aucun serveur n'est
  * demarre : on appelle les commandes du domaine directement, ce qui est
  * precisement l'interet d'avoir garde le metier hors de HTTP.
  *
@@ -29,12 +30,12 @@ process.env.WAITLESS_SILENCIEUX = '1';   // pas de bruit de « mails » dans la 
 const { REGLES_PAR_DEFAUT, validerRegles } = await import('../src/config/rules.js');
 const { chargerJournee, effacerJournee, etat, publier } = await import('../src/domain/eventStore.js');
 const { reglerHorloge, maintenant } = await import('../src/domain/clock.js');
-const { ETATS_TICKET, ticketsFileReelle, ticketsEnAttente, occupationFileReelle } =
-  await import('../src/domain/state.js');
+const { ETATS_TICKET, ticketsEnAttente, ticketsValides } = await import('../src/domain/state.js');
+const { ticketsFileReelle, occupationFileReelle } = await import('../src/domain/estimator.js');
 const {
   enregistrerVisiteur, donnerConsentements, declarerAptitude, rejoindreFile,
   seDesister, retirerTicket, mettreEnPause, reprendre, purger, scanner,
-  modifierRegles, etatInscriptions, ETAPES_SCAN,
+  modifierRegles, etatInscriptions, modifierVisiteur,
 } = await import('../src/domain/commands.js');
 const { ordonnancer, battement, resteGarantieMin, comptageFenetre } =
   await import('../src/domain/scheduler.js');
@@ -91,16 +92,9 @@ function avancer(minutes) {
 }
 
 /** Scanne le ticket : jeton genere a la volee, comme le ferait le telephone. */
-function scannerTicket(ticketId, etape = ETAPES_SCAN.AUTO) {
+function scannerTicket(ticketId) {
   const { jeton } = genererJeton(ticketId, etat().regles.validiteJetonQrSec);
-  return scanner(jeton, 'agent', etape);
-}
-
-/** Fait entrer un ticket dans la salle : convocation, arrivee, entree. */
-function faireEntrer(ticket) {
-  if (etat().tickets[ticket.id].etat === ETATS_TICKET.EN_ATTENTE) ordonnancer(etat());
-  scannerTicket(ticket.id, ETAPES_SCAN.ARRIVEE);
-  return scannerTicket(ticket.id, ETAPES_SCAN.ENTREE);
+  return scanner(jeton, 'agent');
 }
 
 /* ======================================================================== */
@@ -177,10 +171,10 @@ test('RG-04 : l\'heure limite tient compte de la file reelle, pas seulement de l
   journeeNeuve();
   const sansPersonne = etatInscriptions(etat(), 'HUMAIN').heureLimite;
 
-  // 30 personnes convoquees puis arrivees devant l'attraction.
+  // 30 personnes convoquees puis scannees a l'entree de la file reelle.
   const tickets = inscrire(30);
   ordonnancer(etat());
-  for (const t of tickets) scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
+  for (const t of tickets) scannerTicket(t.id);
 
   const avecFileReelle = etatInscriptions(etat(), 'HUMAIN').heureLimite;
   assert.ok(avecFileReelle < sansPersonne,
@@ -294,9 +288,9 @@ test('RG-09 : le delai de convocation porte sur le trajet, pas sur l\'attente su
   ordonnancer(etat());
 
   avancer(9);
-  const arrivee = scannerTicket(t.id);
-  assert.equal(arrivee.verdict, 'ARRIVEE');
-  assert.equal(etat().tickets[t.id].etat, ETATS_TICKET.EN_FILE_REELLE);
+  const scan = scannerTicket(t.id);
+  assert.equal(scan.verdict, 'ACCEPTE');
+  assert.equal(etat().tickets[t.id].etat, ETATS_TICKET.VALIDE);
 });
 
 test('RG-09 : au-dela du delai et de la grace, l\'arrivee est refusee', () => {
@@ -331,19 +325,18 @@ test('RG-10 : l\'absent expire et sa place revient au suivant', async () => {
     'la place liberee est aussitot reattribuee');
 });
 
-test('RG-10 : un visiteur arrive dans la file reelle n\'expire JAMAIS', async () => {
-  journeeNeuve({ capaciteSalle: 1 });
-  const [occupant, patient] = inscrire(2);
+test('RG-10 : un visiteur scanne n\'expire JAMAIS', async () => {
+  journeeNeuve();
+  const [t] = inscrire(1);
 
   ordonnancer(etat());
-  faireEntrer(occupant);                         // il occupe l'unique place
-  scannerTicket(patient.id, ETAPES_SCAN.ARRIVEE);
+  scannerTicket(t.id);
 
-  avancer(120);                                  // deux heures de patience
+  avancer(120);                                  // deux heures plus tard
   await battement();
 
-  assert.equal(etat().tickets[patient.id].etat, ETATS_TICKET.EN_FILE_REELLE,
-    'present devant l\'agent, il ne peut pas etre declare absent');
+  assert.equal(etat().tickets[t.id].etat, ETATS_TICKET.VALIDE,
+    'son code a ete valide, il ne peut pas etre declare absent');
 });
 
 /* ======================================================================== */
@@ -369,15 +362,22 @@ test('RG-11 : retrait, pause et purge exigent un motif', () => {
   assert.equal(etat().tickets[t.id].etat, ETATS_TICKET.RETIRE);
 });
 
-test('RG-11 : un agent peut retirer quelqu\'un de la file reelle (parti sans le dire)', () => {
+test('RG-11 : un agent peut retirer un convoque, et sa place est rendue', () => {
   journeeNeuve();
   const [t] = inscrire(1);
   ordonnancer(etat());
-  scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
 
   retirerTicket(t.id, 'Visiteur parti sans prevenir', 'agent');
   assert.equal(etat().tickets[t.id].etat, ETATS_TICKET.RETIRE);
   assert.equal(occupationFileReelle(etat()), 0, 'la place est rendue a la file reelle');
+});
+
+test('RG-11 : un ticket deja scanne ne se retire plus', () => {
+  journeeNeuve();
+  const [t] = inscrire(1);
+  ordonnancer(etat());
+  scannerTicket(t.id);
+  assert.throws(() => retirerTicket(t.id, 'Erreur de manipulation', 'agent'), /plus actif/);
 });
 
 /* ======================================================================== */
@@ -416,24 +416,24 @@ test('RG-12 : aucun scan n\'est accepte pendant une pause', () => {
 /* RG-13 — Conservation de l'ordre apres panne                               */
 /* ======================================================================== */
 
-test('RG-13 : apres un arret brutal, rangs, etages et convocations sont intacts', () => {
+test('RG-13 : apres un arret brutal, rangs, etats et convocations sont intacts', () => {
   journeeNeuve();
   const tickets = inscrire(8);
   ordonnancer(etat());
-  scannerTicket(tickets[0].id, ETAPES_SCAN.ARRIVEE);
-  faireEntrer(tickets[1]);
+  scannerTicket(tickets[0].id);
+  scannerTicket(tickets[1].id);
 
   const avant = Object.values(etat().tickets)
     .map((t) => `${t.rang}:${t.etat}`).sort().join('|');
-  const fileReelleAvant = ticketsFileReelle(etat()).map((t) => t.id);
+  const scannesAvant = ticketsValides(etat()).map((t) => t.id);
 
   chargerJournee();   // simule le redemarrage : l'etat est rejoue depuis zero
 
   const apres = Object.values(etat().tickets)
     .map((t) => `${t.rang}:${t.etat}`).sort().join('|');
   assert.equal(apres, avant);
-  assert.deepEqual(ticketsFileReelle(etat()).map((t) => t.id), fileReelleAvant,
-    'l\'ordre physique de la file reelle survit au redemarrage');
+  assert.deepEqual(ticketsValides(etat()).map((t) => t.id), scannesAvant,
+    'l\'ordre des scans survit au redemarrage');
 });
 
 /* ======================================================================== */
@@ -497,109 +497,73 @@ test('RG-16 : les convoques en route comptent dans les 30 places', () => {
   const tickets = inscrire(50);
   ordonnancer(etat());
 
-  // 10 arrivent, 20 sont encore en chemin : l'ordonnanceur ne doit convoquer
-  // personne de plus, sans quoi la file deborderait a leur arrivee.
-  for (const t of tickets.slice(0, 10)) scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
+  // 10 sont scannes, 20 sont encore en chemin : l'ordonnanceur ne doit
+  // convoquer personne de plus, sans quoi la file deborderait a leur arrivee.
+  for (const t of tickets.slice(0, 10)) scannerTicket(t.id);
   ordonnancer(etat());
 
   assert.equal(occupationFileReelle(etat()), 30);
   assert.equal(ticketsFileReelle(etat()).length, 10);
 });
 
-test('RG-16 : une place liberee dans la file reelle declenche une convocation', () => {
-  journeeNeuve({ capaciteSalle: 60 });
+test('RG-16 : la file reelle estimee s\'ecoule, et la place liberee declenche une convocation', () => {
+  journeeNeuve();
   const tickets = inscrire(40);
   ordonnancer(etat());
   assert.equal(ticketsEnAttente(etat()).length, 10);
 
-  faireEntrer(tickets[0]);          // il quitte la file reelle pour la salle
+  scannerTicket(tickets[0].id);
+  ordonnancer(etat());
+  assert.equal(ticketsEnAttente(etat()).length, 10, 'tout juste scanne, il occupe encore sa place');
+
+  avancer(1);                        // le temps qu'il passe la porte de la salle
+  assert.equal(ticketsFileReelle(etat()).length, 0);
   ordonnancer(etat());
 
-  assert.equal(ticketsEnAttente(etat()).length, 9, 'le suivant est aussitot appele');
+  assert.equal(ticketsEnAttente(etat()).length, 9, 'le suivant est appele');
   assert.equal(occupationFileReelle(etat()), 30);
 });
 
-/* ======================================================================== */
-/* RG-17 — La salle ne depasse jamais 50, et un refus ne punit personne      */
-/* ======================================================================== */
-
-test('RG-17 : salle pleine, l\'entree est refusee SANS consommer le code', () => {
-  journeeNeuve({ capaciteSalle: 2 });
-  const tickets = inscrire(3);
+test('RG-16 : la file reelle estimee ne s\'ecoule pas pendant une pause', () => {
+  journeeNeuve();
+  const [t] = inscrire(1);
   ordonnancer(etat());
-
-  faireEntrer(tickets[0]);
-  faireEntrer(tickets[1]);
-  scannerTicket(tickets[2].id, ETAPES_SCAN.ARRIVEE);
-
-  const refus = scannerTicket(tickets[2].id, ETAPES_SCAN.ENTREE);
-  assert.equal(refus.verdict, 'REFUSE');
-  assert.match(refus.motif, /Salle pleine \(2\/2\)/);
-  assert.equal(refus.placeConservee, true);
-  assert.equal(etat().tickets[tickets[2].id].etat, ETATS_TICKET.EN_FILE_REELLE,
-    'le visiteur garde sa place dans la file reelle');
-});
-
-test('RG-17 : des qu\'une sortie est comptee, le meme code fait entrer', async () => {
-  journeeNeuve({ capaciteSalle: 1 });
-  const [premier, second] = inscrire(2);
-  ordonnancer(etat());
-  faireEntrer(premier);
-  scannerTicket(second.id, ETAPES_SCAN.ARRIVEE);
-
-  assert.equal(scannerTicket(second.id, ETAPES_SCAN.ENTREE).verdict, 'REFUSE');
-
-  // Le capteur voit le premier visiteur sortir. Le relevé n'est pris en compte
-  // qu'au battement suivant : c'est exactement ce qui se passe en exploitation.
-  forcerOccupation(0);
-  await battement();
-  assert.equal(scannerTicket(second.id, ETAPES_SCAN.ENTREE).verdict, 'ACCEPTE');
-  assert.equal(etat().tickets[second.id].etat, ETATS_TICKET.ENTRE);
-});
-
-test('RG-17 : une rafale de scans ne remplit pas la salle au-dela de sa capacite', async () => {
-  journeeNeuve({ capaciteSalle: 3 });
-  const tickets = inscrire(6);
-  ordonnancer(etat());
-  for (const t of tickets) scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
-
-  // Six scans d'entree d'affilee, sans laisser le capteur se rafraichir : le
-  // comptage corrige doit refuser les trois derniers.
-  const verdicts = tickets.map((t) => scannerTicket(t.id, ETAPES_SCAN.ENTREE).verdict);
-  assert.equal(verdicts.filter((v) => v === 'ACCEPTE').length, 3);
-  assert.equal(verdicts.filter((v) => v === 'REFUSE').length, 3);
+  scannerTicket(t.id);
+  mettreEnPause('Panne du sas', 'agent');
+  avancer(10);
+  assert.equal(ticketsFileReelle(etat()).length, 1, 'l\'attraction est arretee, personne n\'entre');
 });
 
 /* ======================================================================== */
-/* RG-18 — Le QR code, deux usages puis plus rien                            */
+/* RG-17 — La salle est geree a la porte, pas au scan                        */
 /* ======================================================================== */
 
-test('RG-18 : le meme code sert a l\'arrivee puis a l\'entree, et pas une fois de plus', () => {
+test('RG-17 : le scan ne verifie que le code, pas le remplissage de la salle', async () => {
   journeeNeuve();
   const [t] = inscrire(1);
   ordonnancer(etat());
 
-  assert.equal(scannerTicket(t.id).verdict, 'ARRIVEE');
+  forcerOccupation(50);
+  await battement();
+  assert.equal(scannerTicket(t.id).verdict, 'ACCEPTE',
+    'c\'est l\'agent de la porte, sans application, qui regule l\'entree dans la salle');
+  forcerOccupation(null);
+});
+
+/* ======================================================================== */
+/* RG-18 — Le QR code sert une seule fois                                    */
+/* ======================================================================== */
+
+test('RG-18 : le code sert une fois, a l\'entree de la file reelle, et pas une de plus', () => {
+  journeeNeuve();
+  const [t] = inscrire(1);
+  ordonnancer(etat());
+
   assert.equal(scannerTicket(t.id).verdict, 'ACCEPTE');
 
-  const troisieme = scannerTicket(t.id);
-  assert.equal(troisieme.verdict, 'REFUSE');
-  assert.match(troisieme.motif, /déjà utilisé/);
-});
-
-test('RG-18 : l\'etape est deduite de l\'etat du ticket, et ne peut pas etre sautee', () => {
-  journeeNeuve();
-  const [t] = inscrire(1);
-  ordonnancer(etat());
-
-  const saut = scannerTicket(t.id, ETAPES_SCAN.ENTREE);
-  assert.equal(saut.verdict, 'REFUSE');
-  assert.match(saut.motif, /Arrivée non enregistrée/);
-
-  scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
-  const doublon = scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
-  assert.equal(doublon.verdict, 'REFUSE');
-  assert.match(doublon.motif, /déjà enregistrée/);
+  const second = scannerTicket(t.id);
+  assert.equal(second.verdict, 'REFUSE');
+  assert.match(second.motif, /déjà utilisé/);
 });
 
 test('RG-18 : un code presente avant la convocation est refusé', () => {
@@ -615,11 +579,11 @@ test('RG-18 : un code presente avant la convocation est refusé', () => {
 /* Le capteur : source unique de verite sur le remplissage                   */
 /* ======================================================================== */
 
-test('Capteur : sans URL, l\'occupation se deduit des entrees et de la duree de sejour', async () => {
+test('Capteur : sans URL, l\'occupation se deduit des scans et de la duree de sejour', async () => {
   journeeNeuve({ dureeSejourMinSec: 30, dureeSejourMaxSec: 120 });
   const tickets = inscrire(4);
   ordonnancer(etat());
-  for (const t of tickets) faireEntrer(t);
+  for (const t of tickets) scannerTicket(t.id);
 
   await battement();
   assert.equal(dernierReleve().source, 'interne');
@@ -628,22 +592,6 @@ test('Capteur : sans URL, l\'occupation se deduit des entrees et de la duree de 
   avancer(3);    // au-dela de la duree de sejour maximale (2 min)
   await battement();
   assert.equal(dernierReleve().occupation, 0, 'la salle s\'est videe d\'elle-meme');
-});
-
-test('Capteur : une occupation forcee a 50 arrete les entrees, pas les convocations', async () => {
-  journeeNeuve();
-  const tickets = inscrire(40);
-  ordonnancer(etat());
-  scannerTicket(tickets[0].id, ETAPES_SCAN.ARRIVEE);
-
-  forcerOccupation(50);
-  await battement();
-  const r = scannerTicket(tickets[0].id, ETAPES_SCAN.ENTREE);
-  assert.equal(r.verdict, 'REFUSE');
-
-  // La file reelle, elle, reste alimentee : c'est son plafond qui l'arrete.
-  assert.equal(occupationFileReelle(etat()), 30);
-  forcerOccupation(null);
 });
 
 test('Capteur : une URL injoignable ne bloque pas l\'exploitation', async () => {
@@ -662,21 +610,21 @@ test('Vues : file virtuelle, file reelle et salle sont comptees separement', () 
   journeeNeuve({ capaciteSalle: 50, capaciteFileReelle: 30 });
   const tickets = inscrire(45);
   ordonnancer(etat());
-  for (const t of tickets.slice(0, 12)) scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
-  scannerTicket(tickets[0].id, ETAPES_SCAN.ENTREE);
+  for (const t of tickets.slice(0, 12)) scannerTicket(t.id);
 
-  // 45 inscrits : 30 convoques, dont 12 arrives, dont 1 entre dans la salle.
+  // 45 inscrits : 30 convoques, dont 12 scannes a l'entree de la file reelle.
   const v = vueFile(etat());
   assert.equal(v.salle.capacite, 50);
-  assert.equal(v.salle.occupation, 1);
   assert.equal(v.fileReelle.capacite, 30);
-  assert.equal(v.fileReelle.presents, 11);
+  assert.equal(v.fileReelle.presents, 12, 'tout juste scannes, ils sont presumes dans la file');
   assert.equal(v.fileReelle.enRoute, 18);
-  assert.equal(v.fileReelle.occupation, 29, 'presents + en route, une place liberee');
+  assert.equal(v.fileReelle.occupation, 30);
   assert.equal(v.compteurs.enAttente, 15);
+  assert.equal(v.compteurs.valides, 12);
 
+  // La console agent ne liste plus les scannes : on ne sait pas ou ils sont.
   const zones = vueFileAgent(etat()).map((l) => l.zone);
-  assert.equal(zones.filter((z) => z === 'FILE_REELLE').length, 11);
+  assert.equal(zones.length, 33);
   assert.equal(zones.filter((z) => z === 'EN_ROUTE').length, 18);
   assert.equal(zones.filter((z) => z === 'VIRTUELLE').length, 15);
 });
@@ -685,7 +633,7 @@ test('Vues : l\'attente annoncee se decompose en parc puis file reelle', () => {
   journeeNeuve();
   const tickets = inscrire(40);
   ordonnancer(etat());
-  for (const t of tickets.slice(0, 30)) scannerTicket(t.id, ETAPES_SCAN.ARRIVEE);
+  for (const t of tickets.slice(0, 30)) scannerTicket(t.id);
 
   const dernier = etat().tickets[tickets[39].id];
   const vue = vueTicket(etat(), dernier);
@@ -697,18 +645,37 @@ test('Vues : l\'attente annoncee se decompose en parc puis file reelle', () => {
   assert.equal(vue.devantReel, 30);
 });
 
-test('Vues : dans la file reelle, le visiteur voit sa position, plus un compte a rebours', () => {
-  journeeNeuve({ capaciteSalle: 1 });
-  const [premier, second] = inscrire(2);
+test('Vues : apres le scan, le visiteur voit la validation, plus un compte a rebours', () => {
+  journeeNeuve();
+  const [t] = inscrire(1);
   ordonnancer(etat());
-  faireEntrer(premier);
-  scannerTicket(second.id, ETAPES_SCAN.ARRIVEE);
+  scannerTicket(t.id);
 
-  const vue = vueTicket(etat(), etat().tickets[second.id]);
-  assert.equal(vue.etat, ETATS_TICKET.EN_FILE_REELLE);
-  assert.equal(vue.positionFileReelle, 1);
-  assert.equal(vue.resteSec, undefined, 'plus aucun compte a rebours une fois sur place');
-  assert.equal(vue.salle.pleine, true);
+  const vue = vueTicket(etat(), etat().tickets[t.id]);
+  assert.equal(vue.etat, ETATS_TICKET.VALIDE);
+  assert.ok(vue.heureValidation);
+  assert.equal(vue.resteSec, undefined, 'plus aucun compte a rebours une fois scanne');
+});
+
+/* ======================================================================== */
+/* Administration des utilisateurs                                           */
+/* ======================================================================== */
+
+test('Utilisateurs : l\'administrateur corrige l\'aptitude, et c\'est trace', () => {
+  journeeNeuve();
+  const v = enregistrerVisiteur('corrige@exemple.fr');
+  donnerConsentements(v.id, { cgu: true, decharge: true });
+  declarerAptitude(v.id, false);
+  assert.throws(() => rejoindreFile(v.id), /conditions d'accès/);
+
+  modifierVisiteur(v.id, { apte: true, prenom: 'Camille' }, 'admin');
+  assert.equal(etat().visiteurs[v.id].apte, true);
+  assert.equal(etat().visiteurs[v.id].prenom, 'Camille');
+  assert.ok(rejoindreFile(v.id), 'le visiteur peut desormais s\'inscrire');
+  assert.ok(etat().audit.some((a) => a.action === 'VISITEUR_MODIFIE' && a.acteur === 'admin'));
+
+  assert.throws(() => modifierVisiteur(v.id, { statut: 'NAMEK' }, 'admin'), /Statut inconnu/);
+  assert.throws(() => modifierVisiteur(v.id, { prenom: '  ' }, 'admin'), /prénom/);
 });
 
 /* ------------------------------------------------------------------------ */
