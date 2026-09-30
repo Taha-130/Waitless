@@ -1,0 +1,20 @@
+{"seq":1,"type":"VISITEUR_ENREGISTRE","ts":1790760060501,"jour":"2026-09-30","visiteurId":"vis_894c0be6","email":"matthias.trupin95@gmail.com","prenom":"Matthiastrup","initiale":"M","statut":"HUMAIN","refBillet":"BIL-5556","anneeNaissance":null}
+{"seq":2,"type":"CONSENTEMENT_RECUEILLI","ts":1790760063406,"jour":"2026-09-30","visiteurId":"vis_894c0be6","typeConsentement":"CGU","version":"1.0"}
+{"seq":3,"type":"CONSENTEMENT_RECUEILLI","ts":1790760063408,"jour":"2026-09-30","visiteurId":"vis_894c0be6","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":4,"type":"APTITUDE_DECLAREE","ts":1790760063432,"jour":"2026-09-30","visiteurId":"vis_894c0be6","apte":true}
+{"seq":5,"type":"TICKET_CREE","ts":1790760089272,"jour":"2026-09-30","ticketId":"tk_ebb7b7ff","visiteurId":"vis_894c0be6","statut":"HUMAIN","rang":1,"estimationMin":0}
+{"seq":6,"type":"TICKET_CONVOQUE","ts":1790760089274,"jour":"2026-09-30","ticketId":"tk_ebb7b7ff"}
+{"seq":7,"type":"TICKET_ANNULE","ts":1790760096200,"jour":"2026-09-30","ticketId":"tk_ebb7b7ff","motif":"Désistement du visiteur"}
+{"seq":8,"type":"TICKET_CREE","ts":1790760112096,"jour":"2026-09-30","ticketId":"tk_cea2d0c7","visiteurId":"vis_894c0be6","statut":"HUMAIN","rang":2,"estimationMin":0}
+{"seq":9,"type":"TICKET_CONVOQUE","ts":1790760112098,"jour":"2026-09-30","ticketId":"tk_cea2d0c7"}
+{"seq":10,"type":"TICKET_ANNULE","ts":1790760115611,"jour":"2026-09-30","ticketId":"tk_cea2d0c7","motif":"Désistement du visiteur"}
+{"seq":11,"type":"TICKET_CREE","ts":1790760950734,"jour":"2026-09-30","ticketId":"tk_2f0d85e3","visiteurId":"vis_894c0be6","statut":"HUMAIN","rang":3,"estimationMin":0}
+{"seq":12,"type":"TICKET_CONVOQUE","ts":1790760950736,"jour":"2026-09-30","ticketId":"tk_2f0d85e3"}
+{"seq":13,"type":"TICKET_ANNULE","ts":1790760954353,"jour":"2026-09-30","ticketId":"tk_2f0d85e3","motif":"Désistement du visiteur"}
+{"seq":14,"type":"VISITEUR_ENREGISTRE","ts":1790760972262,"jour":"2026-09-30","visiteurId":"vis_283e0753","email":"matthias.trupin95888@gmail.com","prenom":"Matthiastrup","initiale":"M","statut":"SAIYAN","refBillet":"BIL-0948","anneeNaissance":null}
+{"seq":15,"type":"CONSENTEMENT_RECUEILLI","ts":1790760976050,"jour":"2026-09-30","visiteurId":"vis_283e0753","typeConsentement":"CGU","version":"1.0"}
+{"seq":16,"type":"CONSENTEMENT_RECUEILLI","ts":1790760976051,"jour":"2026-09-30","visiteurId":"vis_283e0753","typeConsentement":"DECHARGE_PESANTEUR","version":"1.0"}
+{"seq":17,"type":"APTITUDE_DECLAREE","ts":1790760976060,"jour":"2026-09-30","visiteurId":"vis_283e0753","apte":true}
+{"seq":18,"type":"TICKET_CREE","ts":1790760977977,"jour":"2026-09-30","ticketId":"tk_f496e64a","visiteurId":"vis_283e0753","statut":"SAIYAN","rang":4,"estimationMin":0}
+{"seq":19,"type":"TICKET_CONVOQUE","ts":1790760977980,"jour":"2026-09-30","ticketId":"tk_f496e64a"}
+{"seq":20,"type":"TICKET_ANNULE","ts":1790760984671,"jour":"2026-09-30","ticketId":"tk_f496e64a","motif":"Désistement du visiteur"}

@@ -18,11 +18,13 @@ lu avant d'ouvrir un fichier.
    ┌──────────────────────┐   convocation    ┌───────────────────┐
    │  1. FILE VIRTUELLE   │ ───────────────> │  2. FILE RÉELLE   │
    │  illimitée           │  10 min pour     │  30 personnes max │
-   │  on profite du parc  │  se présenter    │  devant la porte  │
-   └──────────────────────┘                  └─────────┬─────────┘
-                                                       │ 2ᵉ scan, si
-                                                       │ une place s'est
-                                                       │ libérée
+   │  on profite du parc  │  se présenter    │  QR scanné une    │
+   └──────────────────────┘                  │  fois, à l'entrée │
+                                             └─────────┬─────────┘
+                                                       │ un agent, sans
+                                                       │ application, fait
+                                                       │ entrer quand une
+                                                       │ place se libère
                                              ┌─────────▼─────────┐
                                              │ 3. SALLE DU TEMPS │
                                              │  50 personnes max │
@@ -36,14 +38,14 @@ lu avant d'ouvrir un fichier.
 2. **Convocation.** Quand une place se libère dans la file réelle, l'ordonnanceur
    appelle le visiteur suivant. Il a 10 minutes (plus un délai de grâce) pour
    **rejoindre la file d'attente installée devant l'attraction**.
-3. **Premier scan.** À son arrivée, l'agent scanne son QR code. Le compte à
-   rebours s'arrête : le visiteur est là, il ne peut plus être déclaré absent.
-4. **Second scan.** Le capteur indique à l'agent combien de personnes se
-   trouvent dans la salle. Dès qu'une place se libère, il rescanne le **même**
-   code et fait entrer le visiteur. Le code est alors consommé.
-5. **Sortie.** On quitte la salle quand on veut, sans rien scanner. C'est
-   pourquoi le capteur est indispensable : le système sait qui entre, il ne peut
-   pas savoir qui sort.
+3. **Scan.** À son arrivée au début de la file réelle, l'agent scanne son QR
+   code. C'est le **seul** scan du parcours : l'agent vérifie le code, le compte
+   à rebours s'arrête et le code est consommé.
+4. **Entrée dans la salle.** Un second agent, **sans application**, fait entrer
+   les visiteurs de la file réelle dès qu'une place se libère (il s'appuie sur
+   le capteur). Il n'y a pas de seconde vérification.
+5. **Sortie.** On quitte la salle quand on veut, sans rien scanner. Le capteur
+   est la seule source qui sache combien de personnes sont dans la salle.
 
 Trois conséquences qui expliquent la forme du code :
 
@@ -53,12 +55,14 @@ Trois conséquences qui expliquent la forme du code :
   entrées observées. À ce rythme, la salle se renouvelle très vite : en pratique,
   c'est le contrôle à l'entrée et le trajet des convoqués qui limitent le débit.
 - **L'ordonnanceur ne décide pas qui entre dans la salle.** Il décide seulement
-  qui quitte le parc pour aller faire la queue. C'est l'agent, au second scan,
-  qui fait entrer. La régulation par la capacité de la salle est donc physique :
-  salle pleine → personne n'entre → la file réelle ne se vide pas →
-  l'ordonnanceur cesse de convoquer, faute de place. Rien de tout cela n'est
-  codé comme une règle ; cela découle du modèle.
-- **Le même QR code sert deux fois, et pas une de plus.**
+  qui quitte le parc pour aller faire la queue. C'est l'agent de la porte, sans
+  application, qui fait entrer.
+- **Le système ne sait pas qui est dans la file réelle et qui est déjà dans la
+  salle.** Pour lui, le parcours s'arrête au scan. L'occupation de la file
+  réelle est donc une **estimation** : les convoqués en route, plus les scannés
+  présumés encore dans la file (écoulement dans l'ordre du scan, au débit
+  effectif, gelé pendant une pause).
+- **Le QR code sert une fois, et pas une de plus.**
 
 ---
 
@@ -68,7 +72,7 @@ Prérequis : **Node.js 18 ou plus**. Rien d'autre. Pas de `npm install`, pas de
 base de données à installer, pas de Docker : le projet n'a **aucune dépendance**.
 
 ```bash
-node seed.js --heure=10:00 --arrivees=12 --entrees=6   # peuple les trois étages
+node seed.js --heure=10:00 --scannes=12   # peuple la file et fait scanner 12 convoqués
 node server.js                                          # démarre le serveur
 ```
 
@@ -89,12 +93,11 @@ Autres commandes :
 ```bash
 node seed.js --reset         # efface la journée et repart de zéro
 node seed.js --nombre=60     # 60 visiteurs dans la file virtuelle
-node seed.js --arrivees=12   # dont 12 déjà arrivés dans la file réelle
-node seed.js --entrees=6     # dont 6 déjà entrés dans la salle
-node --test test/*.test.js   # lance les 40 tests des règles métier
+node seed.js --scannes=12    # dont 12 déjà scannés à l'entrée de la file réelle
+node --test test/*.test.js   # lance les 39 tests des règles métier
 ```
 
-Le peuplement emprunte le vrai parcours, scans compris : rien n'est écrit
+Le peuplement emprunte le vrai parcours, scan compris : rien n'est écrit
 directement dans le journal. Les tests, eux, travaillent dans un dossier
 temporaire et n'effacent jamais la journée en cours.
 
@@ -111,35 +114,30 @@ minutes, sans attendre 19h00.
    parties : le temps à passer dans le parc, puis le temps debout devant
    l'attraction.
 2. **Priorités.** Le jeu de données contient des Humains, des Saiyans et des
-   Super Saiyans. Dans la console agent, onglet **File**, on voit l'ordre réel :
+   Super Saiyans. Dans la console agent, onglet **File**, on voit l'ordre :
    les Super Saiyans passent devant, les Saiyans remontent quand leur garantie
    de 30 minutes approche, et une part des convocations reste réservée aux
    Humains.
 3. **Convocation.** L'écran du visiteur bascule en plein écran : un compte à
    rebours pour **rejoindre la file** et un QR code.
-4. **Premier scan.** Console agent → scanner le code. Verdict ambre :
-   « Arrivée enregistrée ». Côté visiteur, le compte à rebours disparaît et
-   laisse place à sa position dans la file réelle. Attendre : il n'expire plus.
-5. **Second scan.** Rescanner le même code. Verdict vert : « Entrée autorisée ».
-   Rescanner une troisième fois : refusé, usage unique. Attendre 30 secondes et
-   rescanner un ancien code : refusé, il a tourné.
-6. **Salle pleine.** Tableau de bord → **Affluence** → forcer l'occupation à 50.
-   Scanner quelqu'un de la file réelle : refusé, « Salle pleine (50/50) ». Son
-   ticket reste intact et il garde sa place. Libérer le forçage, rescanner :
-   accepté. C'est le point le plus important de la démonstration — un plafond
-   n'est pas une punition.
-7. **Plafond de la file réelle.** Peupler avec 60 visiteurs : l'ordonnanceur
+4. **Scan.** Console agent → scanner le code. Verdict vert : « Code valide ».
+   Côté visiteur, le compte à rebours disparaît : « Code validé, suivez la
+   file ». Rescanner : refusé, usage unique. Attendre 30 secondes et scanner un
+   ancien code : refusé, il a tourné.
+5. **Plafond de la file réelle.** Peupler avec 60 visiteurs : l'ordonnanceur
    s'arrête exactement à 30 personnes engagées, convoqués en route compris, et
    laisse les autres profiter du parc.
-8. **Incident.** Console agent → **Incidents** → mettre en pause avec un motif.
+6. **Utilisateurs.** Tableau de bord → **Utilisateur** : corriger l'aptitude
+   ou le statut d'un visiteur. La modification apparaît dans l'onglet **Log**.
+7. **Incident.** Console agent → **Incidents** → mettre en pause avec un motif.
    Tous les compteurs se figent côté visiteur, un message part, et la reprise
    restitue exactement le temps restant.
-9. **Fin de journée.** Régler l'horloge sur `18:40`. Les inscriptions se ferment
+8. **Fin de journée.** Régler l'horloge sur `18:40`. Les inscriptions se ferment
    d'elles-mêmes, statut par statut, et les derniers inscrits reçoivent
    l'avertissement de vigilance.
-10. **Panne.** Tuer le serveur brutalement (`Ctrl+C`, ou `kill -9`), puis
-    `node server.js`. La file virtuelle, l'ordre physique de la file réelle, les
-    rangs et les convocations en cours sont identiques : rien n'est perdu.
+9. **Panne.** Tuer le serveur brutalement (`Ctrl+C`, ou `kill -9`), puis
+   `node server.js`. La file virtuelle, les scans, les rangs et les
+   convocations en cours sont identiques : rien n'est perdu.
 
 ---
 
@@ -170,7 +168,7 @@ waitless/
 │       ├── billetterie.js  référentiel des statuts (simulé)
 │       └── jeuDeDonnees.js peuplement de démonstration
 ├── public/                 interface web (HTML + CSS + JS, sans framework)
-└── test/regles.test.js     40 tests, un par règle critique
+└── test/regles.test.js     39 tests, un par règle critique
 ```
 
 La dépendance va toujours dans le même sens : `api → domain → (rien)`, et
@@ -187,12 +185,10 @@ l'ordre après panne ») n'est donc pas une fonctionnalité en plus : c'est une
 conséquence du stockage. L'écriture est synchrone, pour qu'un événement accepté
 soit réellement sur le disque avant la réponse.
 
-**Un état de ticket par étage.** `EN_ATTENTE` dans le parc, `CONVOQUE` en route,
-`EN_FILE_REELLE` devant la porte, `ENTRE` dans la salle. C'est ce découpage qui
-permet de compter séparément les 30 places de la file et les 50 de la salle, et
-surtout de n'appliquer l'expiration qu'aux `CONVOQUE` : un visiteur présent
-devant l'agent ne peut pas être déclaré absent, quelle que soit la durée de son
-attente.
+**Un état de ticket par étape connue du système.** `EN_ATTENTE` dans le parc,
+`CONVOQUE` en route, `VALIDE` une fois le code scanné à l'entrée de la file
+réelle. L'expiration ne s'applique qu'aux `CONVOQUE` : un visiteur scanné ne
+peut plus être déclaré absent.
 
 **Séparation commandes / vues.** Les écritures passent par `commands.js`, qui
 vérifie les règles et publie des événements. Les lectures passent par
@@ -219,11 +215,11 @@ complet en soutenance.
 | F-07 | Notification de vigilance de fin de journée | `scheduler.js: avertirFinDeJournee` |
 | F-08 | Convocation vers la file réelle, délai et grâce | `scheduler.js: ordonnancer`, `expirerConvocations` |
 | F-09 | Trois statuts et leurs quotas | `config/rules.js: statuts`, `scheduler.js: comptageFenetre` |
-| F-10 | QR nominatif rotatif, deux usages puis journalier | `domain/qr.js` + états du ticket |
+| F-10 | QR nominatif rotatif, usage unique et journalier | `domain/qr.js` + états du ticket |
 | F-11 | Scan agent avec verdict < 1 s | `commands.js: scanner`, console agent |
 | F-12 | Retrait, pause, reprise, purge avec motif | `commands.js` (`retirerTicket`, `mettreEnPause`, `reprendre`, `purger`) |
 | F-13 | Conservation de l'ordre après incident ou panne | `domain/eventStore.js` |
-| F-14 | Capteur de la Salle du Temps | `infra/sensor.js`, plafond appliqué dans `commands.js: scanner` |
+| F-14 | Capteur de la Salle du Temps | `infra/sensor.js`, affiché aux équipes |
 | F-15 | Tableau de bord exploitant | `api/views.js: vueMetriques` |
 | F-16 | Configuration des règles sans redéploiement | `config/rules.js: validerRegles`, `PUT /api/admin/config/rules` |
 
@@ -240,15 +236,15 @@ complet en soutenance.
 | RG-07 | Garantie Saiyan (jusqu'à la convocation) ou fermeture | `scheduler.js: resteGarantieMin`, `commands.js` | oui |
 | RG-08 | Part minimale réservée aux Humains | `scheduler.js: reserveHumain` | oui |
 | RG-09 | 10 min pour rejoindre la file réelle + délai de grâce | `commands.js: scanner`, `scheduler.js` | oui |
-| RG-10 | Expiration du convoqué absent, jamais du présent | `scheduler.js: expirerConvocations` | oui |
+| RG-10 | Expiration du convoqué absent, jamais du scanné | `scheduler.js: expirerConvocations` | oui |
 | RG-11 | Agent : jamais d'ajout, motif obligatoire | absence de route + `exigerMotif` | oui |
 | RG-12 | La pause gèle et restitue les compteurs | `state.js: tempsActifEcoule` | oui |
 | RG-13 | Conservation de l'ordre après panne | `eventStore.js: chargerJournee` | oui |
 | RG-14 | Désistement et retrait définitifs, QR révoqué | `commands.js: seDesister` + état du ticket | oui |
 | RG-15 | Seuils modifiables sans redéploiement | `REGLES_MODIFIEES` + `validerRegles` | oui |
-| RG-16 | La file réelle ne dépasse jamais 30 personnes | `scheduler.js: ordonnancer`, `state.js: placesFileReelle` | oui |
-| RG-17 | La salle ne dépasse jamais 50 ; un refus ne consomme rien | `commands.js: scanner` | oui |
-| RG-18 | Le QR sert exactement deux fois, dans l'ordre | `commands.js: scanner` (étapes) | oui |
+| RG-16 | La file réelle ne dépasse pas 30 personnes (estimée) | `scheduler.js: ordonnancer`, `estimator.js: placesFileReelle` | oui |
+| RG-17 | La salle ne dépasse pas 50 : régulée à la porte, pas au scan | agent de la porte + capteur | oui |
+| RG-18 | Le QR sert exactement une fois | `commands.js: scanner` | oui |
 
 ### Le garde-fou de RG-11
 
@@ -268,17 +264,16 @@ curl -X POST localhost:3000/api/admin/tickets   # 404
 Un test automatisé vérifie en plus que le code source ne contient qu'un seul
 appel à cette commande.
 
-### Les deux scans, et pourquoi il en faut deux
+### Un seul scan
 
-Avec un seul scan, à la porte de la salle, un visiteur sagement arrivé dans la
-file réelle verrait sa convocation expirer si aucune place ne se libère dans les
-dix minutes. On le punirait d'une lenteur qui n'est pas la sienne.
+L'agent de la file réelle scanne le QR code et vérifie qu'il est valide : c'est
+tout. Il ne contrôle pas le remplissage de la salle. Un second agent, sans
+application, fait entrer les visiteurs au rythme des places libérées, sans
+seconde vérification.
 
-Avec deux scans, le délai de convocation ne mesure plus que ce que le visiteur
-maîtrise — le trajet. Le reste de l'attente, debout devant l'attraction, n'a plus
-de limite de temps et ne peut plus lui coûter sa place. En prime, le système sait
-distinguer un absent d'un présent qui attend, ce qui est exactement la mesure
-dont l'exploitant a besoin.
+Le délai de convocation ne mesure donc que le trajet : une fois scanné, le
+visiteur ne peut plus perdre sa place, quelle que soit la durée de son attente
+devant la salle.
 
 ---
 
@@ -297,8 +292,7 @@ Toutes les routes sont préfixées par `/api`.
 | POST | `/queues/:id/tickets` | **visiteur uniquement** |
 | GET | `/tickets/:id`, `/tickets/:id/qr` | visiteur |
 | DELETE | `/tickets/:id` | visiteur |
-| POST | `/agent/scans` | agent — étape déduite de l'état du ticket |
-| POST | `/agent/scans/arrivee`, `/agent/scans/entree` | agent — étape forcée |
+| POST | `/agent/scans` | agent — scan à l'entrée de la file réelle |
 | POST | `/agent/incidents` | agent |
 | POST | `/agent/queues/:id/pause`, `/resume`, `/purge`, `/reopen` | agent |
 | GET | `/agent/queue`, `/agent/incidents` | agent |
@@ -306,13 +300,15 @@ Toutes les routes sont préfixées par `/api`.
 | GET | `/sensors/time-chamber/:id` | public |
 | PUT | `/mock/sensors` | admin |
 | GET | `/admin/metrics`, `/admin/config/rules`, `/admin/audit-logs`, `/admin/mailbox` | admin |
+| GET | `/admin/users` | admin |
+| PUT | `/admin/users/:id` | admin — prénom, initiale, statut, aptitude |
 | PUT | `/admin/config/rules` | admin |
 | GET/POST | `/admin/clock` | admin |
 | POST | `/admin/seed` | admin |
 | GET | `/health` | public |
 
-`POST /api/agent/scans` renvoie trois verdicts : `ARRIVEE` (le visiteur prend
-place dans la file réelle), `ACCEPTE` (il entre dans la salle) et `REFUSE`.
+`POST /api/agent/scans` renvoie deux verdicts : `ACCEPTE` (code valide, le
+visiteur entre dans la file réelle) et `REFUSE`, toujours avec un motif.
 
 ---
 
@@ -352,7 +348,7 @@ L'URL du capteur se règle dans les règles (`capteurUrl`), pas par variable
 d'environnement : c'est un paramètre d'exploitation, modifiable sans redémarrage.
 Le capteur doit répondre en JSON, au choix `{"count": 42}` ou simplement `42`.
 Si l'URL est vide ou injoignable, l'application retombe sur une estimation
-interne — les entrées scannées, moins celles dont la durée de séjour supposée est
+interne — les codes scannés, moins ceux dont la durée de séjour supposée est
 écoulée — et le signale dans le tableau de bord.
 
 ---
@@ -371,15 +367,14 @@ Ces écarts au cahier des charges sont des choix, pas des oublis.
 - **Capteur non réalisé.** Conformément à ce qui a été convenu, l'application se
   contente de consommer l'URL fournie par le capteur. Elle en tire une seule
   information, mais capitale : combien de personnes se trouvent dans la salle.
+- **Pas de détection « dans la file ou dans la salle ».** L'entrée dans la
+  salle n'est pas scannée : le système sait qui a été scanné et à quelle heure,
+  pas qui est déjà entré. L'occupation de la file réelle est une estimation
+  (écoulement au débit effectif), et les attentes « réelles » des métriques sont
+  mesurées jusqu'au scan.
 - **Les sorties ne sont pas individualisées.** Le capteur donne un nombre, pas
-  une liste. Le système sait donc qui est entré et à quelle heure, mais pas
-  combien de temps chacun est resté. Un capteur renvoyant des identifiants
-  (`{"count": 42, "ids": [...]}`) permettrait de mesurer la durée de séjour
-  réelle et d'affiner le débit ; le champ est déjà lu par `sensor.js`.
-- **L'ordre dans la file réelle n'est pas contrôlé à la porte.** L'agent scanne
-  qui se présente. Cette file est physique : imposer un ordre depuis un écran,
-  devant des gens qui se voient, créerait plus de conflits qu'elle n'en
-  résoudrait. La console affiche l'ordre d'arrivée à titre indicatif.
+  une liste. Un capteur renvoyant des identifiants (`{"count": 42, "ids": [...]}`)
+  permettrait d'affiner le débit ; le champ est déjà lu par `sensor.js`.
 - **Rendu du QR par une bibliothèque externe.** C'est la seule ressource réseau
   du projet, et elle est facultative : sans elle, le code s'affiche en clair et
   l'agent le saisit à la main — le mode dégradé prévu au chapitre 8.

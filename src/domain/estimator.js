@@ -35,7 +35,8 @@
 
 import { maintenant } from './clock.js';
 import { dureeSejourMoyenneSec } from '../config/rules.js';
-import { ticketsEnAttente, ticketsFileReelle, ticketsConvoques } from './state.js';
+import { ticketsEnAttente, ticketsConvoques, ticketsValides, msEnPause } from './state.js';
+import { dernierReleve } from '../infra/sensor.js';
 
 /**
  * Debit nominal, en visiteurs par heure, deduit de la physique de la salle.
@@ -56,8 +57,10 @@ export function debitEffectif(state, occupationSalle = 0) {
   const now = maintenant();
   const fenetreMin = 30;
 
+  // L'entree dans la salle n'est pas scannee : on observe le rythme des scans a
+  // l'entree de la file reelle, qui est le meme en regime etabli.
   const entrees = Object.values(state.tickets).filter(
-    (t) => t.entreA !== null && now - t.entreA <= fenetreMin * 60_000,
+    (t) => t.valideA !== null && now - t.valideA <= fenetreMin * 60_000,
   ).length;
 
   // On ne fait confiance a l'observation qu'a partir de 5 passages.
@@ -84,13 +87,55 @@ export function nombreDevantVirtuel(state, statut, rang = Infinity) {
   }).length;
 }
 
+/* ------------------------------------------------------------------------ */
+/* File reelle : une estimation, faute de detection                          */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Visiteurs scannes presumes encore dans la file reelle.
+ *
+ * Le seul scan a lieu a l'entree de la file reelle ; l'entree dans la salle se
+ * fait sans verification. Le systeme ne sait donc pas qui attend encore et qui
+ * est deja dans la salle. On suppose que la file s'ecoule dans l'ordre du scan,
+ * au debit effectif : chacun entre un intervalle apres le precedent, et jamais
+ * avant d'avoir ete scanne. Les pauses ne font pas avancer la file (RG-12).
+ */
+export function ticketsFileReelle(state, now = maintenant()) {
+  const valides = ticketsValides(state);
+  if (!valides.length) return [];
+  const intervalleMs = 3_600_000 / debitEffectif(state, dernierReleve().occupation);
+  const actif = (ts) => ts - msEnPause(state, 0, ts);
+  const maintenantActif = actif(now);
+
+  const presents = [];
+  let entree = -Infinity;
+  for (const t of valides) {
+    entree = Math.max(actif(t.valideA), entree) + intervalleMs;
+    if (entree > maintenantActif) presents.push(t);
+  }
+  return presents;
+}
+
+/**
+ * Places occupees ou reservees dans la file reelle : les scannes presumes encore
+ * sur place, plus les convoques en route, dont la place est deja reservee.
+ */
+export function occupationFileReelle(state, now = maintenant()) {
+  return ticketsFileReelle(state, now).length + ticketsConvoques(state).length;
+}
+
+/** Places encore libres dans la file reelle (RG-16). */
+export function placesFileReelle(state, now = maintenant()) {
+  return Math.max(0, state.regles.capaciteFileReelle - occupationFileReelle(state, now));
+}
+
 /**
  * Nombre de visiteurs deja engages dans la file REELLE : ceux qui y patientent,
  * et ceux qui sont en route avec une place reservee. Tous entreront avant le
  * nouvel inscrit, quel que soit son statut : ils ont deja quitte le parc.
  */
 export function nombreDevantReel(state) {
-  return ticketsFileReelle(state).length + ticketsConvoques(state).length;
+  return occupationFileReelle(state);
 }
 
 /** Arrivees par heure des statuts strictement plus prioritaires que `statut`. */
@@ -176,24 +221,6 @@ export function estimer(state, statut, { rang = Infinity, occupationSalle = 0, d
     devantReel: reel,
     debit: Math.round(debit),
     elargie: incidentRecent,
-  };
-}
-
-/**
- * Attente restante d'un visiteur DEJA dans la file reelle : il ne depend plus
- * que des personnes devant lui et du rythme auquel la salle se vide.
- */
-export function estimerDepuisFileReelle(state, ticket, occupationSalle = 0) {
-  const debit = debitEffectif(state, occupationSalle);
-  const devant = ticketsFileReelle(state).filter((t) => t.arriveA < ticket.arriveA).length;
-  const minutes = Math.round((devant / debit) * 60);
-  const r = state.regles;
-  return {
-    minutes,
-    devant,
-    basse: Math.max(0, Math.floor(minutes * r.facteurFourchetteBasse)),
-    haute: Math.ceil(minutes * r.facteurFourchetteHaute),
-    debit: Math.round(debit),
   };
 }
 

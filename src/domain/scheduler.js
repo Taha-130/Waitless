@@ -16,25 +16,25 @@
  * et il ne convoque que tant que les 30 places de la file reelle ne sont pas
  * toutes prises ou reservees.
  *
- * Il ne decide PAS qui entre dans la Salle du Temps : c'est l'agent, au second
- * scan, quand le capteur lui montre qu'une place s'est liberee. La salle n'a
- * pas de fournee, pas de cycle, pas d'horaire : les gens en sortent quand ils
- * veulent, et la file reelle avance au meme rythme.
+ * Il ne decide PAS qui entre dans la Salle du Temps : c'est l'agent de la
+ * porte, sans application, qui fait entrer les visiteurs de la file reelle au
+ * rythme des places qui se liberent. La salle n'a pas de fournee, pas de
+ * cycle, pas d'horaire : les gens en sortent quand ils veulent.
  *
- * Cette separation est ce qui remplace les « cycles » du modele precedent. Le
- * plafond de la salle agit de lui-meme, sans etre code ici : si la salle est
- * pleine, personne n'entre, la file reelle ne se vide pas, et l'ordonnanceur
- * cesse de convoquer faute de place. La regulation est physique, pas calculee.
+ * L'entree dans la salle n'etant pas scannee, l'occupation de la file reelle
+ * est une ESTIMATION (voir estimator.js : ticketsFileReelle) : les convoques en
+ * route, plus les scannes presumes encore dans la file au debit effectif.
  * ---------------------------------------------------------------------------
  */
 
 import { maintenant, minutesDuJour, formatHeure } from './clock.js';
 import { etat, publier, verifierJour } from './eventStore.js';
 import {
-  ticketsEnAttente, ticketsConvoques, ticketsFileReelle,
-  occupationFileReelle, placesFileReelle, occupationSalleEstimee, tempsActifEcoule,
+  ticketsEnAttente, ticketsConvoques, occupationSalleEstimee, tempsActifEcoule,
 } from './state.js';
-import { estimer, nombreDevantReel } from './estimator.js';
+import {
+  estimer, nombreDevantReel, ticketsFileReelle, occupationFileReelle, placesFileReelle,
+} from './estimator.js';
 import { envoyer } from '../infra/mailer.js';
 import { releverCapteur, dernierReleve } from '../infra/sensor.js';
 
@@ -127,9 +127,8 @@ export async function battement() {
 
 /**
  * N'expirent que les CONVOQUES : ceux qui ont ete appeles et ne se sont pas
- * presentes. Un visiteur deja arrive dans la file reelle ne peut plus expirer,
- * quelle que soit la duree de son attente : il est la, sous les yeux de
- * l'agent. C'est precisement ce que le premier scan sert a etablir.
+ * presentes. Un visiteur scanne a l'entree de la file reelle ne peut plus
+ * expirer : son code est valide, il est la.
  */
 function expirerConvocations(state) {
   const now = maintenant();
@@ -216,8 +215,8 @@ export function ordonnancer(state = etat()) {
   if (minutes < r.debutExploitation || minutes >= r.finExploitation) return [];
 
   // RG-16 : seul plafond de la convocation, la file reelle. On compte les
-  // arrives ET les convoques en route, sans quoi une rafale de convocations
-  // enverrait 30 personnes de plus sur une file deja pleine.
+  // scannes presumes encore sur place ET les convoques en route, sans quoi une
+  // rafale de convocations enverrait 30 personnes de plus sur une file pleine.
   let restant = placesFileReelle(state);
   if (restant === 0) return [];
 
@@ -265,7 +264,7 @@ export function ordonnancer(state = etat()) {
     const v = state.visiteurs[t.visiteurId];
     if (v) {
       envoyer(v.email, 'C\'est votre tour — rejoignez la Salle du Temps',
-        `Vous avez ${Math.round(r.delaiConvocationSec / 60)} minutes pour rejoindre la file d'attente située devant l'attraction. Un agent y scannera votre code à votre arrivée, puis vous fera entrer dès qu'une place se libérera dans la salle.`,
+        `Vous avez ${Math.round(r.delaiConvocationSec / 60)} minutes pour rejoindre la file d'attente située devant l'attraction. Un agent y scannera votre code à votre arrivée.`,
         'CONVOCATION');
     }
   }

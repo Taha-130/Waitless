@@ -14,7 +14,7 @@
  * - Rotatif      : le creneau change toutes les 30 s, l'ancien jeton ne valide plus.
  * - Journalier   : la cle derive de la date, donc tout jeton est mort le lendemain.
  * - Sans base    : la verification est un simple calcul, rien a stocker.
- * - Usage unique : garanti par l'etat du ticket (une fois ENTRE, il est refuse).
+ * - Usage unique : garanti par l'etat du ticket (une fois VALIDE, il est refuse).
  * - Revocable    : un desistement ou un retrait change l'etat, donc refuse aussitot.
  *
  * Le jeton ne vaut pas identite : l'agent controle la piece d'identite (ch. 7).

@@ -9,19 +9,18 @@
  * Aucune vue ne modifie l'etat.
  *
  * Toutes les vues distinguent explicitement les trois etages : file virtuelle,
- * file reelle, salle. Une interface qui confondrait les deux dernieres
- * afficherait « 30 personnes » a un endroit ou il y en a 50, ou l'inverse :
- * c'est exactement le quiproquo que ce modele corrige.
+ * file reelle, salle. La salle est comptee par le capteur ; la file reelle est
+ * une estimation, puisque l'entree dans la salle n'est pas scannee.
  * ---------------------------------------------------------------------------
  */
 
 import { etatHorloge, maintenant, formatHeure, minutesDuJour, timestampDuJour } from '../domain/clock.js';
 import {
-  ETATS_TICKET, ticketsEnAttente, ticketsConvoques, ticketsFileReelle,
-  occupationFileReelle, placesFileReelle, tempsActifEcoule,
+  ETATS_TICKET, ticketsEnAttente, ticketsConvoques, tempsActifEcoule,
 } from '../domain/state.js';
 import {
-  estimer, estimerTousStatuts, estimerDepuisFileReelle, nombreDevantReel, debitNominal,
+  estimer, estimerTousStatuts, nombreDevantReel, debitNominal,
+  ticketsFileReelle, occupationFileReelle, placesFileReelle,
 } from '../domain/estimator.js';
 import { etatInscriptions, enHeure, occupationSalle } from '../domain/commands.js';
 import { resteGarantieMin } from '../domain/scheduler.js';
@@ -86,7 +85,8 @@ export function vueFile(state) {
       debitNominal: Math.round(debitNominal(r)),
     },
 
-    // Etage 2 : la file physique devant l'attraction.
+    // Etage 2 : la file physique devant l'attraction. `presents` est estime :
+    // on sait qui a ete scanne, pas qui est deja entre dans la salle.
     fileReelle: {
       presents: ticketsFileReelle(state).length,
       enRoute: ticketsConvoques(state).length,
@@ -100,7 +100,7 @@ export function vueFile(state) {
       enAttente: ticketsEnAttente(state).length,
       convoques: ticketsConvoques(state).length,
       enFileReelle: ticketsFileReelle(state).length,
-      entres: tickets.filter((t) => t.etat === ETATS_TICKET.ENTRE).length,
+      valides: tickets.filter((t) => t.etat === ETATS_TICKET.VALIDE).length,
       expires: tickets.filter((t) => t.etat === ETATS_TICKET.EXPIRE).length,
       desistements: tickets.filter((t) => t.etat === ETATS_TICKET.ANNULE).length,
       parStatut: repartition(ticketsEnAttente(state)),
@@ -167,26 +167,9 @@ export function vueTicket(state, ticket) {
     };
   }
 
-  /* --- Etage 2 : present dans la file reelle, plus aucun compte a rebours - */
-  if (ticket.etat === ETATS_TICKET.EN_FILE_REELLE) {
-    const est = estimerDepuisFileReelle(state, ticket, occupation);
-    const position = ticketsFileReelle(state).findIndex((t) => t.id === ticket.id) + 1;
-    return {
-      ...base,
-      arriveA: ticket.arriveA,
-      heureArrivee: formatHeure(ticket.arriveA),
-      positionFileReelle: position,
-      devantFileReelle: est.devant,
-      estimation: est,
-      heurePrevisionnelle: formatHeure(now + est.minutes * 60_000),
-      attenteFileReelleMin: Math.round(tempsActifEcoule(state, ticket.arriveA, now) / 60_000),
-      salle: { occupation, capacite: r.capaciteSalle, pleine: occupation >= r.capaciteSalle },
-    };
-  }
-
-  /* --- Etage 3 et fins de parcours --------------------------------------- */
-  if (ticket.etat === ETATS_TICKET.ENTRE) {
-    return { ...base, entreA: ticket.entreA, heureEntree: formatHeure(ticket.entreA) };
+  /* --- Code scanne a l'entree de la file reelle : fin du parcours suivi --- */
+  if (ticket.etat === ETATS_TICKET.VALIDE) {
+    return { ...base, valideA: ticket.valideA, heureValidation: formatHeure(ticket.valideA) };
   }
 
   return base;
@@ -197,10 +180,10 @@ export function vueTicket(state, ticket) {
 /* ------------------------------------------------------------------------ */
 
 /**
- * L'agent voit les deux etages dans une seule liste, mais jamais melanges :
- * la file reelle d'abord, dans son ordre physique d'arrivee, puis ceux qui sont
- * en route, puis la file virtuelle. C'est l'ordre dans lequel il les
- * rencontrera.
+ * L'agent voit les tickets encore actifs : ceux qui sont en route vers la file
+ * reelle, puis la file virtuelle. C'est l'ordre dans lequel il les
+ * rencontrera. Une fois scanne, un visiteur sort de la liste : le systeme ne
+ * sait pas s'il attend encore ou s'il est deja dans la salle.
  */
 export function vueFileAgent(state) {
   const now = maintenant();
@@ -212,7 +195,7 @@ export function vueFileAgent(state) {
     const g = resteGarantieMin(state, t, now);
     return {
       position,
-      zone,                                  // FILE_REELLE | EN_ROUTE | VIRTUELLE
+      zone,                                  // EN_ROUTE | VIRTUELLE
       id: t.id,
       rang: t.rang,
       etat: t.etat,
@@ -220,9 +203,6 @@ export function vueFileAgent(state) {
       libelleStatut: r.statuts[t.statut]?.libelle ?? t.statut,
       visiteur: `${v.prenom ?? '?'} ${v.initiale ?? ''}.`,
       heureInscription: formatHeure(t.creeA),
-      heureArrivee: t.arriveA ? formatHeure(t.arriveA) : null,
-      attenteFileReelleMin: t.arriveA
-        ? Math.round(tempsActifEcoule(state, t.arriveA, now) / 60_000) : null,
       resteConvocationSec: ecouleSec === null || t.etat !== ETATS_TICKET.CONVOQUE ? null
         : Math.max(0, Math.round(r.delaiConvocationSec + r.delaiGraceSec - ecouleSec)),
       resteGarantieMin: g === null ? null : Math.round(g),
@@ -231,7 +211,6 @@ export function vueFileAgent(state) {
 
   const lignes = [];
   let i = 0;
-  for (const t of ticketsFileReelle(state)) lignes.push(ligne(t, 'FILE_REELLE', ++i));
   for (const t of ticketsConvoques(state).sort((a, b) => a.convoqueA - b.convoqueA)) {
     lignes.push(ligne(t, 'EN_ROUTE', ++i));
   }
@@ -247,16 +226,18 @@ export function vueMetriques(state) {
   const r = state.regles;
   const now = maintenant();
   const tickets = Object.values(state.tickets);
-  const entres = tickets.filter((t) => t.entreA !== null);
+  // L'entree dans la salle n'est pas scannee : le passage mesure est le scan
+  // a l'entree de la file reelle.
+  const valides = tickets.filter((t) => t.valideA !== null);
   const expires = tickets.filter((t) => t.etat === ETATS_TICKET.EXPIRE);
   const annules = tickets.filter((t) => t.etat === ETATS_TICKET.ANNULE);
   const occupation = occupationSalle(state);
 
-  // Attente reelle vecue par les visiteurs deja entres, par statut : de
-  // l'inscription a l'entree dans la salle, c'est-a-dire tout le parcours.
+  // Attente reelle vecue par les visiteurs scannes, par statut : de
+  // l'inscription au scan a l'entree de la file reelle.
   const reelsParStatut = {};
-  for (const t of entres) {
-    const reelMin = tempsActifEcoule(state, t.creeA, t.entreA) / 60_000;
+  for (const t of valides) {
+    const reelMin = tempsActifEcoule(state, t.creeA, t.valideA) / 60_000;
     (reelsParStatut[t.statut] ??= []).push(reelMin);
   }
 
@@ -273,19 +254,13 @@ export function vueMetriques(state) {
   }
 
   // Ecart entre attente annoncee a l'inscription et attente reellement vecue.
-  const ecarts = entres
+  const ecarts = valides
     .map((t) => {
-      const reel = tempsActifEcoule(state, t.creeA, t.entreA) / 60_000;
+      const reel = tempsActifEcoule(state, t.creeA, t.valideA) / 60_000;
       if (reel < 1) return null;
       return Math.abs(t.estimationInitialeMin - reel) / reel;
     })
     .filter((x) => x !== null);
-
-  // Temps passe debout dans la file reelle : le seul que le visiteur subit
-  // vraiment. C'est l'indicateur qui dit si la convocation est bien calibree.
-  const sejoursFileReelle = tickets
-    .filter((t) => t.arriveA !== null)
-    .map((t) => tempsActifEcoule(state, t.arriveA, t.entreA ?? now) / 60_000);
 
   // RG-07 : la garantie Saiyan porte sur le delai jusqu'a la CONVOCATION.
   const saiyansConvoques = tickets.filter((t) => t.statut === 'SAIYAN' && t.convoqueA !== null);
@@ -316,7 +291,7 @@ export function vueMetriques(state) {
 
   return {
     remplissage: {
-      attractionPct: arrondi((entres.length / placesOffertes) * 100),
+      attractionPct: arrondi((valides.length / placesOffertes) * 100),
       sallePct: arrondi((occupation / r.capaciteSalle) * 100),
       occupationSalle: occupation,
       capaciteSalle: r.capaciteSalle,
@@ -329,24 +304,17 @@ export function vueMetriques(state) {
       presents: ticketsFileReelle(state).length,
       enRoute: ticketsConvoques(state).length,
       places: placesFileReelle(state),
-      sejourMoyenMin: arrondi(moyenne(sejoursFileReelle)),
-      sejourP90Min: arrondi(centile(sejoursFileReelle, 90)),
-      // Refus « salle pleine » : mesure directe de la saturation vecue au
-      // guichet. Ils ne consomment aucun ticket, mais ils font patienter.
-      refusSallePleine: state.scans.filter(
-        (s) => s.verdict === 'REFUSE' && /Salle pleine/.test(s.motif || ''),
-      ).length,
     },
     garantieSaiyanPct: saiyansConvoques.length
       ? arrondi((garantieTenue / saiyansConvoques.length) * 100) : 100,
     ecartAnnonceReelPct: ecarts.length ? arrondi(moyenne(ecarts) * 100) : 0,
     absences: {
-      tauxPct: entres.length + expires.length
-        ? arrondi((expires.length / (entres.length + expires.length)) * 100) : 0,
+      tauxPct: valides.length + expires.length
+        ? arrondi((expires.length / (valides.length + expires.length)) * 100) : 0,
       nombre: expires.length,
       refusScan: state.scans.filter((s) => s.verdict === 'REFUSE').length,
     },
-    repartitionPassages: repartition(entres),
+    repartitionPassages: repartition(valides),
     incidents: { nombre: state.incidents.length, dureeCumuleeMin: arrondi(dureeIncidentsMin) },
     finDeJournee: {
       ticketsNonServis: nonServis,
@@ -354,7 +322,7 @@ export function vueMetriques(state) {
     },
     totaux: {
       inscrits: tickets.length,
-      entres: entres.length,
+      valides: valides.length,
       expires: expires.length,
       annules: annules.length,
       enAttente: ticketsEnAttente(state).length,
@@ -388,4 +356,24 @@ function centile(serie, p) {
 
 function arrondi(n) {
   return Math.round((Number(n) || 0) * 10) / 10;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Vue « utilisateurs » pour l'administrateur                                */
+/* ------------------------------------------------------------------------ */
+
+/** Visiteurs de la journee, sans les comptes effaces (RGPD). */
+export function vueUtilisateurs(state) {
+  return Object.values(state.visiteurs)
+    .filter((v) => !v.efface)
+    .sort((a, b) => a.creeA - b.creeA)
+    .map((v) => ({
+      id: v.id,
+      email: v.email,
+      prenom: v.prenom,
+      initiale: v.initiale,
+      statut: v.statut,
+      refBillet: v.refBillet,
+      apte: v.apte,
+    }));
 }
