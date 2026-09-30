@@ -200,7 +200,7 @@ function rendre() {
     ? `<div class="message ${S.message.type}">${echapper(S.message.texte)}</div>`
     : '';
 
-  if (!S.session) html += ecranConnexion();
+  if (!S.session) html += surPageEquipe() ? ecranEquipe() : ecranConnexion();
   else if (S.role === 'visiteur') html += ecranVisiteur();
   else if (S.role === 'agent') html += ecranAgent();
   else if (S.role === 'admin') html += ecranAdmin();
@@ -255,12 +255,44 @@ function ecranConnexion() {
       <p class="discret" style="margin-top:10px">Aucun mot de passe. Le lien est valable 15 minutes.</p>
     </div>
     ${resumeAttentePublique()}
+    <p style="text-align:center;margin-top:20px">
+      <button class="sobre" data-action="page-equipe">Accès équipe</button>
+    </p>`;
+}
+
+/* ------------------------------------------------ Page « Accès équipe » ---
+   Page a part (/equipe) : l'accueil reste reserve aux visiteurs, et l'equipe
+   peut mettre cette adresse en favori. Le serveur renvoie index.html pour
+   toute adresse inconnue, c'est donc le front qui choisit l'ecran.
+   ------------------------------------------------------------------------- */
+
+const PAGE_EQUIPE = '/equipe';
+
+function surPageEquipe() {
+  return location.pathname === PAGE_EQUIPE;
+}
+
+function allerA(chemin) {
+  if (location.pathname !== chemin) history.pushState({}, '', chemin);
+  S.message = null;
+  rendre();
+}
+
+// Boutons precedent / suivant du navigateur.
+window.addEventListener('popstate', () => { S.message = null; rendre(); });
+
+function ecranEquipe() {
+  return `
     <div class="bloc">
-      <h3>Accès équipe</h3>
+      <h1>Accès équipe</h1>
+      <p class="discret">Réservé aux agents et aux administrateurs de la Salle du Temps.</p>
       <label for="code">Code agent ou administrateur</label>
-      <input id="code" type="text" placeholder="AGENT-2026">
-      <button class="sobre" data-action="backoffice">Ouvrir la console</button>
-    </div>`;
+      <input id="code" type="text" placeholder="AGENT-2026" autocomplete="off" data-entree="backoffice">
+      <button class="principal large" data-action="backoffice">Ouvrir la console</button>
+    </div>
+    <p style="text-align:center;margin-top:20px">
+      <button class="sobre" data-action="page-accueil">← Retour à l'accueil visiteurs</button>
+    </p>`;
 }
 
 function resumeAttentePublique() {
@@ -456,7 +488,7 @@ function ecranFinParcours(ticket, visiteur) {
   }
 
   const textes = {
-    VALIDE: ['Code validé', "Un agent vous fera entrer dans la Salle du Temps — suivez ses indications sur place. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc."],
+    VALIDE: ['Code validé', "Suivez la file : un agent vous fera entrer dans la Salle du Temps dès qu'une place se libère. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc."],
     EXPIRE: ['Convocation expirée', "Vous n'avez pas rejoint la file de l'attraction à temps. Vous pouvez vous réinscrire en fin de file."],
     ANNULE: ['Vous avez quitte la file', 'Votre place a été libérée. Vous pouvez vous réinscrire quand vous voulez.'],
     RETIRE: ['Ticket retiré par un agent', ticket.motif || 'Un agent a retiré votre ticket.'],
@@ -898,6 +930,12 @@ function brancherActions(racine) {
   racine.querySelectorAll('[data-action]').forEach((el) => {
     el.addEventListener('click', () => executer(el.dataset.action, el.dataset));
   });
+  // Touche Entree dans un champ : declenche l'action indiquee par data-entree.
+  racine.querySelectorAll('[data-entree]').forEach((el) => {
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') executer(el.dataset.entree, el.dataset);
+    });
+  });
 }
 
 async function executer(action, data) {
@@ -905,6 +943,11 @@ async function executer(action, data) {
 
   switch (action) {
     case 'deconnexion': return seDeconnecter();
+
+    case 'page-equipe':
+      allerA(PAGE_EQUIPE);
+      return document.getElementById('code')?.focus();
+    case 'page-accueil': return allerA('/');
 
     case 'onglet': S.onglet = data.onglet; return rendre();
     case 'fermer-modal': return fermerModal();
@@ -953,7 +996,7 @@ async function executer(action, data) {
       return agir(() => api('POST', '/api/me/eligibility', { apte: true }));
 
     case 'rejoindre':
-      return agir(() => api('POST', `/api/queues/${FILE}/tickets`));
+      return agir(() => api('POST', `/api/queues/${FILE}/tickets`), 'Vous êtes dans la file.');
 
     case 'desister':
       return ouvrirModal(
