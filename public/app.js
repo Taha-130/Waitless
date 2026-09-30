@@ -755,6 +755,7 @@ const CHAMPS_REGLES = [
   ['finExploitation', 'Fin d\'exploitation'],
   ['periodeTickMs', 'Période de l\'ordonnanceur (ms)'],
   ['capteurUrl', 'URL du capteur'],
+  ['billetterieUrl', 'URL de la billetterie'],
 ];
 
 function blocReglesAdmin() {

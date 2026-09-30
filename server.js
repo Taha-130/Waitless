@@ -19,6 +19,7 @@ import { battement } from './src/domain/scheduler.js';
 import { etatHorloge } from './src/domain/clock.js';
 import { creerApplication } from './src/api/http.js';
 import { enregistrerRoutes, diffuserEtat } from './src/api/routes.js';
+import { chargerBilletterie } from './src/infra/billetterie.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -50,6 +51,9 @@ async function boucle() {
 }
 boucle();
 
+// Premier chargement de la billetterie : verifie l'URL des le demarrage.
+const billetterie = await chargerBilletterie(etat().regles.billetterieUrl);
+
 const h = etatHorloge();
 console.log(`
   Waitless — La Salle du Temps
@@ -58,6 +62,10 @@ console.log(`
   Heure simulee  ${h.heure} (vitesse x${h.vitesse})
   Journee        ${etat().jour}
   Codes          agent ${etat().regles.codeAgent} / admin ${etat().regles.codeAdmin}
+  Capteur        ${etat().regles.capteurUrl || '(aucun : estimation interne)'}
+  Billetterie    ${!billetterie.url ? '(aucune : fichier local)'
+    : billetterie.erreur ? `${billetterie.url} — injoignable, repli local`
+    : `${billetterie.url} — ${billetterie.nombre} billet(s)`}
   ---------------------------------------------
   Ctrl+C pour arreter. L'etat est conserve dans data/.
 `);

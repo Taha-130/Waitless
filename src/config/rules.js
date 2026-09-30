@@ -34,6 +34,8 @@
  * ---------------------------------------------------------------------------
  */
 
+import { URLS } from './urls.js';
+
 export const REGLES_PAR_DEFAUT = {
   /* --- Capacites ------------------------------------------------------- */
 
@@ -122,7 +124,8 @@ export const REGLES_PAR_DEFAUT = {
   /* --- Exploitation technique ------------------------------------------ */
 
   periodeTickMs: 5000,            // battement de l'ordonnanceur
-  capteurUrl: '',                 // vide = repli sur l'estimation interne
+  capteurUrl: URLS.capteur,       // vide = repli sur l'estimation interne (src/config/urls.js)
+  billetterieUrl: URLS.billetterie, // vide = repli sur data/billetterie.json (src/config/urls.js)
   codeAgent: 'AGENT-2026',
   codeAdmin: 'ADMIN-2026',
 };
@@ -161,7 +164,7 @@ const BORNES = {
 };
 
 /** Champs texte acceptes tels quels (pas de borne numerique). */
-const TEXTES = ['capteurUrl', 'codeAgent', 'codeAdmin'];
+const TEXTES = ['capteurUrl', 'billetterieUrl', 'codeAgent', 'codeAdmin'];
 
 /**
  * Valide un lot de modifications de regles.

@@ -149,6 +149,7 @@ waitless/
 ├── seed.js                 jeu de données fictif en ligne de commande
 ├── src/
 │   ├── config/rules.js     valeurs par défaut + bornes de validité des règles
+│   ├── config/urls.js      URLs du capteur et de la billetterie
 │   ├── domain/             ← tout le métier, sans HTTP ni fichiers
 │   │   ├── clock.js        horloge d'exploitation pilotable
 │   │   ├── state.js        état + réducteur d'événements + les trois étages
@@ -165,7 +166,7 @@ waitless/
 │   └── infra/              ← le monde extérieur, remplaçable
 │       ├── mailer.js       notifications simulées
 │       ├── sensor.js       capteur de la Salle du Temps
-│       ├── billetterie.js  référentiel des statuts (simulé)
+│       ├── billetterie.js  référentiel des statuts (GET sur l'URL, sinon fichier local)
 │       └── jeuDeDonnees.js peuplement de démonstration
 ├── public/                 interface web (HTML + CSS + JS, sans framework)
 └── test/regles.test.js     39 tests, un par règle critique
@@ -343,13 +344,38 @@ Variables d'environnement, toutes facultatives :
 | `PORT` | `3000` | port d'écoute |
 | `WAITLESS_SECRET` | secret de démo | clé de signature des sessions et des QR |
 | `WAITLESS_SILENCIEUX` | non défini | coupe l'affichage des e-mails simulés |
+| `WAITLESS_CAPTEUR_URL` | vide | URL du capteur de la Salle du Temps |
+| `WAITLESS_BILLETTERIE_URL` | vide | URL de la base de la billetterie |
 
-L'URL du capteur se règle dans les règles (`capteurUrl`), pas par variable
-d'environnement : c'est un paramètre d'exploitation, modifiable sans redémarrage.
-Le capteur doit répondre en JSON, au choix `{"count": 42}` ou simplement `42`.
+### URLs du capteur et de la billetterie
+
+Les deux URLs sont réunies dans **`src/config/urls.js`**. On peut les changer :
+
+1. dans ce fichier (valeur par défaut, durable) ;
+2. au lancement : `WAITLESS_BILLETTERIE_URL=http://… WAITLESS_CAPTEUR_URL=http://… node server.js` ;
+3. à chaud, dans le tableau de bord (onglet **Règles**, champs `capteurUrl` et
+   `billetterieUrl`). Ce réglage vaut pour la journée en cours.
+
+**Capteur.** Doit répondre en JSON, au choix `{"count": 42}` ou simplement `42`.
 Si l'URL est vide ou injoignable, l'application retombe sur une estimation
 interne — les codes scannés, moins ceux dont la durée de séjour supposée est
 écoulée — et le signale dans le tableau de bord.
+
+**Billetterie.** À chaque connexion d'un visiteur, Waitless fait d'abord un
+`GET` sur cette URL pour récupérer la base des billets, puis y cherche l'e-mail.
+Formats JSON acceptés :
+
+```json
+[ { "email": "lea@exemple.fr", "prenom": "Lea", "statut": "SAIYAN", "refBillet": "BIL-1000" } ]
+{ "visiteurs": [ … ] }            // ou "users", ou "data"
+{ "lea@exemple.fr": { "prenom": "Lea", "statut": "SAIYAN" } }
+```
+
+Statuts reconnus : `HUMAIN`, `SAIYAN`, `SUPER_SAIYAN` (un statut inconnu vaut
+`HUMAIN`). Seuls le prénom, l'initiale, le statut, la référence du billet et
+l'année de naissance sont conservés. Si l'URL est vide, injoignable (délai de
+2 s), ou si l'e-mail n'y figure pas, on retombe sur `data/billetterie.json`,
+puis sur un statut déduit de l'e-mail.
 
 ---
 
