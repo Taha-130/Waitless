@@ -952,7 +952,7 @@ async function executer(action, data) {
       return agir(() => api('POST', '/api/me/eligibility', { apte: true }));
 
     case 'rejoindre':
-      return agir(() => api('POST', `/api/queues/${FILE}/tickets`), 'Vous êtes dans la file.');
+      return agir(() => api('POST', `/api/queues/${FILE}/tickets`));
 
     case 'desister':
       return ouvrirModal(
