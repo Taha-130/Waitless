@@ -145,18 +145,27 @@ async function rafraichir() {
   }
   rendre();
 }
-
+function saisieOuConsentementEnCours() {
+  return (
+    ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)
+    || !!document.getElementById('cgu')
+    || !!document.getElementById('decharge')
+  );
+}
 /** Flux temps reel : le serveur pousse l'etat de la file a chaque battement. */
 function ouvrirFlux() {
   const source = new EventSource(`/api/queues/${FILE}/stream`);
+
   source.onmessage = (ev) => {
     S.vue = JSON.parse(ev.data);
-    // On evite de re-dessiner pendant une saisie : cela viderait le champ.
-    const saisieEnCours = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+
+    const saisieEnCours = saisieOuConsentementEnCours();
+
     if (S.session) rafraichirDiscret(saisieEnCours);
     else if (!saisieEnCours && !S.modal) rendre();
     else rendreBandeau();
   };
+
   source.onerror = () => rendreBandeau();
 }
 
@@ -183,11 +192,13 @@ async function rafraichirDiscret(saisieEnCours) {
 
 function rendre() {
   rendreBandeau();
+
   const app = $('#app');
   app.className = S.role === 'agent' || S.role === 'admin' ? 'large' : '';
 
   let html = S.message
-    ? `<div class="message ${S.message.type}">${echapper(S.message.texte)}</div>` : '';
+    ? `<div class="message ${S.message.type}">${echapper(S.message.texte)}</div>`
+    : '';
 
   if (!S.session) html += ecranConnexion();
   else if (S.role === 'visiteur') html += ecranVisiteur();
@@ -200,7 +211,6 @@ function rendre() {
   
   brancherActions(app);
   dessinerQr();
-  $('#pied').innerHTML = '<small>Waitless — démonstrateur. Données fictives, effacées chaque jour.</small>';
 }
 
 function rendreBandeau() {
@@ -276,13 +286,17 @@ function ecranVisiteur() {
   const aConsenti = visiteur.consentements.length >= 2;
   if (!aConsenti || visiteur.apte === null) return ecranConsentement(visiteur);
   if (visiteur.apte === false) {
-    return `<div class="bloc danger">
-      <h1>Accès non autorisé</h1>
-      <p>Vous avez déclaré ne pas remplir les conditions d'accès à la Salle du Temps.
-      L'attraction impose plusieurs G ; par sécurité, l'inscription est bloquée.</p>
-      <button class="sobre" data-action="revenir-aptitude">Je me suis trompé, je suis apte</button>
-    </div>`;
-  }
+  return `<div class="bloc danger">
+    <h1>Accès refusé</h1>
+    <p>Vous avez déclaré ne pas remplir les conditions d’accès à la Salle du Temps.
+    L’attraction impose plusieurs G. Par mesure de sécurité, votre inscription est donc bloquée.</p>
+
+    <h2>Vous pensez vous être trompé ?</h2>
+    <p>Si vous êtes finalement apte à participer à l’attraction, vous pouvez modifier votre déclaration.</p>
+
+    <button class="sobre" data-action="revenir-aptitude">Je suis bien apte</button>
+  </div>`;
+}
 
   // Etape 3 : convoque -> prise de parole plein ecran, il faut se deplacer.
   if (ticket && ticket.etat === 'CONVOQUE') return ecranConvocation(ticket);
