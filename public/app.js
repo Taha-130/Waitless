@@ -25,6 +25,7 @@ const S = {
   onglet: 'attente',
   message: null,    // {type, texte}
   scan: null,       // dernier verdict
+  modal: null,      // popup de confirmation en cours : {titre, texte, action, texteConfirmer}
   recuA: 0,         // horodatage local de la derniere reception (compte a rebours)
 };
 
@@ -88,6 +89,39 @@ function ouvrirSession(jeton, role) {
   localStorage.setItem('waitless.role', role);
 }
 
+
+function ouvrirModal(titre, texte, action, texteConfirmer = 'Confirmer') {
+  S.modal = { titre, texte, action, texteConfirmer };
+  rendre();
+}
+
+function fermerModal() {
+  S.modal = null;
+  rendre();
+}
+
+/* -------------------------------------------------------------------------
+   CORRECTION : blocModal etait definie par erreur A L'INTERIEUR de
+   ecranAttraction(). Elle est ici remontee au niveau global, sinon rendre()
+   leve « ReferenceError: blocModal is not defined » des qu'une confirmation
+   s'ouvre, ce qui interrompt le rendu AVANT brancherActions() : plus aucun
+   bouton n'etait alors rattache a son action (boutons inertes).
+   ---------------------------------------------------------------------- */
+function blocModal() {
+  const m = S.modal;
+  if (!m) return '';
+  return `<div class="modal-fond">
+    <div class="modal-boite">
+      <h3>${echapper(m.titre)}</h3>
+      <p>${echapper(m.texte)}</p>
+      <div class="ligne">
+        <button class="sobre" data-action="fermer-modal">Annuler</button>
+        <button class="danger" data-action="confirmer-modal">${echapper(m.texteConfirmer)}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 /* ------------------------------------------------- Chargement des donnees */
 
 async function rafraichir() {
@@ -128,7 +162,7 @@ function ouvrirFlux() {
     const saisieEnCours = saisieOuConsentementEnCours();
 
     if (S.session) rafraichirDiscret(saisieEnCours);
-    else if (!saisieEnCours) rendre();
+    else if (!saisieEnCours && !S.modal) rendre();
     else rendreBandeau();
   };
 
@@ -151,7 +185,7 @@ async function rafraichirDiscret(saisieEnCours) {
   // L'onglet Utilisateur n'est pas redessine a chaque battement : cela
   // effacerait une modification en cours avant qu'elle soit enregistree.
   const edition = S.role === 'admin' && S.onglet === 'utilisateurs';
-  if (saisieEnCours || edition) rendreBandeau(); else rendre();
+  if (saisieEnCours || edition || S.modal) rendreBandeau(); else rendre();
 }
 
 /* ------------------------------------------------------------ Rendu ----- */
@@ -171,15 +205,10 @@ function rendre() {
   else if (S.role === 'agent') html += ecranAgent();
   else if (S.role === 'admin') html += ecranAdmin();
 
-  // Pied de page commun à toutes les pages
-  html += `
-    <footer class="pied">
-      <small>Waitless — démonstrateur. Données fictives, effacées chaque jour.</small>
-    </footer>
-  `;
+  if (S.modal) html += blocModal();
 
   app.innerHTML = html;
-
+  
   brancherActions(app);
   dessinerQr();
 }
@@ -877,6 +906,13 @@ async function executer(action, data) {
     case 'deconnexion': return seDeconnecter();
 
     case 'onglet': S.onglet = data.onglet; return rendre();
+    case 'fermer-modal': return fermerModal();
+    case 'confirmer-modal': {
+      const action = S.modal?.action;
+      fermerModal();
+      return executer(action, {});
+    }
+
 
     case 'lien': {
       try {
@@ -918,10 +954,16 @@ async function executer(action, data) {
     case 'rejoindre':
       return agir(() => api('POST', `/api/queues/${FILE}/tickets`), 'Vous êtes dans la file.');
 
-    case 'desister': {
-      if (!confirm('Quitter la file ? Cette action est définitive et libère votre place.')) return;
+    case 'desister':
+      return ouvrirModal(
+        'Quitter la file ?',
+        'Cette action est définitive et libère votre place. Vous devrez vous réinscrire si vous changez d\'avis.',
+        'desister-confirme',
+        'Quitter la file'
+      );
+
+    case 'desister-confirme':
       return agir(() => api('DELETE', `/api/tickets/${S.moi.ticket.id}`), 'Vous avez quitté la file.');
-    }
 
     case 'exporter': {
       const donnees = await api('GET', '/api/me/export');
@@ -1026,7 +1068,10 @@ async function executer(action, data) {
 /* ------------------------------------------- Scan par la camera (option) - */
 
 async function scannerAvecCamera() {
-  if (!('BarcodeDetector' in window)) {
+  // BarcodeDetector est natif et rapide, mais absent de Safari/iOS : jsQR
+  // (charge dans index.html) sert de repli, via un canvas hors ecran.
+  const detecteurNatif = 'BarcodeDetector' in window ? new window.BarcodeDetector({ formats: ['qr_code'] }) : null;
+  if (!detecteurNatif && !window.jsQR) {
     return annoncer('Ce navigateur ne sait pas lire les QR codes. Saisissez le code à la main.', 'info');
   }
   const video = document.getElementById('video');
@@ -1035,15 +1080,30 @@ async function scannerAvecCamera() {
     video.style.display = 'block';
     video.srcObject = flux;
     await video.play();
-    const detecteur = new window.BarcodeDetector({ formats: ['qr_code'] });
+
+    const canvas = detecteurNatif ? null : document.createElement('canvas');
+    const ctx = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+
+    const detecter = async () => {
+      if (detecteurNatif) {
+        const codes = await detecteurNatif.detect(video).catch(() => []);
+        return codes[0]?.rawValue || null;
+      }
+      if (!video.videoWidth) return null;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      return window.jsQR(image.data, image.width, image.height)?.data || null;
+    };
 
     const boucle = async () => {
       if (!video.srcObject) return;
-      const codes = await detecteur.detect(video).catch(() => []);
-      if (codes.length) {
+      const valeur = await detecter();
+      if (valeur) {
         flux.getTracks().forEach((t) => t.stop());
         video.srcObject = null; video.style.display = 'none';
-        document.getElementById('jeton').value = codes[0].rawValue;
+        document.getElementById('jeton').value = valeur;
         return executer('scanner', {});
       }
       requestAnimationFrame(boucle);
@@ -1070,5 +1130,5 @@ rafraichir();
 // Compte a rebours : seul rafraichissement a la seconde, et uniquement quand un
 // ticket est convoque. Le reste de l'interface suit le rythme du serveur.
 setInterval(() => {
-  if (S.role === 'visiteur' && S.moi?.ticket?.etat === 'CONVOQUE') rendre();
+  if (S.role === 'visiteur' && S.moi?.ticket?.etat === 'CONVOQUE' && !S.modal) rendre();
 }, 1000);
