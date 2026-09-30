@@ -144,21 +144,30 @@ async function rafraichirDiscret(saisieEnCours) {
 
 function rendre() {
   rendreBandeau();
+
   const app = $('#app');
   app.className = S.role === 'agent' || S.role === 'admin' ? 'large' : '';
 
   let html = S.message
-    ? `<div class="message ${S.message.type}">${echapper(S.message.texte)}</div>` : '';
+    ? `<div class="message ${S.message.type}">${echapper(S.message.texte)}</div>`
+    : '';
 
   if (!S.session) html += ecranConnexion();
   else if (S.role === 'visiteur') html += ecranVisiteur();
   else if (S.role === 'agent') html += ecranAgent();
   else if (S.role === 'admin') html += ecranAdmin();
 
+  // Pied de page commun à toutes les pages
+  html += `
+    <footer class="pied">
+      <small>Waitless — démonstrateur. Données fictives, effacées chaque jour.</small>
+    </footer>
+  `;
+
   app.innerHTML = html;
+
   brancherActions(app);
   dessinerQr();
-  $('#pied').innerHTML = '<small>Waitless — démonstrateur. Données fictives, effacées chaque jour.</small>';
 }
 
 function rendreBandeau() {
