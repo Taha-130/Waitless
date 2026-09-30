@@ -27,7 +27,8 @@
  *
  * Consequence directe sur le parametrage : il n'y a ni cycle, ni fournee. Le
  * debit n'est pas decrete, il se deduit de la capacite de la salle et de la
- * duree moyenne de sejour, puis se recale sur les entrees reellement observees.
+ * duree de sejour (30 s a 2 min, soit 75 s en moyenne), puis se recale sur les
+ * entrees reellement observees.
  * ---------------------------------------------------------------------------
  */
 
@@ -41,11 +42,13 @@ export const REGLES_PAR_DEFAUT = {
   capaciteFileReelle: 30,
 
   /**
-   * Duree moyenne de presence dans la salle, en minutes. Les visiteurs sortent
-   * quand ils veulent : cette valeur n'est donc pas une regle imposee mais une
-   * hypothese de debit, que l'estimateur corrige avec les entrees observees.
+   * Duree de presence dans la salle, en SECONDES : entre 30 s et 2 min. Les
+   * visiteurs sortent quand ils veulent : ces valeurs ne sont donc pas une
+   * regle imposee mais une hypothese de debit (moyenne = milieu de la plage,
+   * 75 s), que l'estimateur corrige avec les entrees observees.
    */
-  dureeSejourMoyenneMin: 20,
+  dureeSejourMinSec: 30,
+  dureeSejourMaxSec: 120,
 
   /* --- Delais de convocation (RG-09, RG-10) ---------------------------- */
 
@@ -122,6 +125,11 @@ export const REGLES_PAR_DEFAUT = {
   codeAdmin: 'ADMIN-2026',
 };
 
+/** Duree moyenne de sejour, en secondes : le milieu de la plage min-max. */
+export function dureeSejourMoyenneSec(regles) {
+  return (regles.dureeSejourMinSec + regles.dureeSejourMaxSec) / 2;
+}
+
 /**
  * Bornes de validite. Toute valeur modifiable a chaud est bornee ici : une
  * saisie hors bornes est refusee avec un message explicite plutot que
@@ -130,7 +138,8 @@ export const REGLES_PAR_DEFAUT = {
 const BORNES = {
   capaciteSalle: [1, 500, 'Capacité de la Salle du Temps'],
   capaciteFileReelle: [1, 200, 'Capacité de la file réelle'],
-  dureeSejourMoyenneMin: [1, 240, 'Durée moyenne de séjour (min)'],
+  dureeSejourMinSec: [5, 14400, 'Durée minimale de séjour (s)'],
+  dureeSejourMaxSec: [5, 14400, 'Durée maximale de séjour (s)'],
   delaiConvocationSec: [60, 3600, 'Délai de convocation (s)'],
   delaiGraceSec: [0, 1800, 'Délai de grâce (s)'],
   rappelAvantFinSec: [0, 1800, 'Rappel avant expiration (s)'],
@@ -193,6 +202,9 @@ export function validerRegles(patch = {}) {
   }
   if (fusion.debutExploitation >= fusion.finExploitation) {
     erreurs.push("La fin d'exploitation doit suivre le début d'exploitation");
+  }
+  if (fusion.dureeSejourMinSec > fusion.dureeSejourMaxSec) {
+    erreurs.push('La durée minimale de séjour dépasse la durée maximale');
   }
   if (fusion.facteurFourchetteBasse > fusion.facteurFourchetteHaute) {
     erreurs.push('La borne basse de la fourchette dépasse la borne haute');

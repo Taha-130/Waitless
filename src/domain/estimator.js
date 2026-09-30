@@ -13,7 +13,12 @@
  * nombre de places par cycle : la salle fonctionne en flux continu, donc
  *
  *   debit nominal = capacite de la salle / duree moyenne de sejour
- *                 = 50 personnes / 20 min = 150 personnes par heure
+ *                 = 50 personnes / 75 s = 2 400 personnes par heure
+ *
+ * (sejour de 30 s a 2 min, 75 s en moyenne). A ce rythme, ce n'est plus la
+ * salle qui limite le debit en pratique, mais le controle a l'entree et le
+ * temps que mettent les convoques a rejoindre la file reelle : d'ou
+ * l'importance du recalage sur les entrees observees.
  *
  * Cette valeur n'est qu'une hypothese de depart, puisque chacun sort quand il
  * veut : elle est recalee sur les entrees REELLEMENT observees des qu'il y en a
@@ -29,14 +34,15 @@
  */
 
 import { maintenant } from './clock.js';
+import { dureeSejourMoyenneSec } from '../config/rules.js';
 import { ticketsEnAttente, ticketsFileReelle, ticketsConvoques } from './state.js';
 
 /**
  * Debit nominal, en visiteurs par heure, deduit de la physique de la salle.
- * 50 places liberees en moyenne toutes les 20 minutes = 150 entrees par heure.
+ * 50 places liberees en moyenne toutes les 75 secondes = 2 400 entrees par heure.
  */
 export function debitNominal(regles) {
-  return regles.capaciteSalle * (60 / regles.dureeSejourMoyenneMin);
+  return regles.capaciteSalle * (3600 / dureeSejourMoyenneSec(regles));
 }
 
 /**

@@ -49,7 +49,9 @@ Trois conséquences qui expliquent la forme du code :
 
 - **Il n'y a ni cycle, ni fournée, ni horaire de passage.** La salle fonctionne
   en flux continu. Le débit n'est pas décrété, il se déduit de la capacité et de
-  la durée moyenne de séjour, puis se recale sur les entrées observées.
+  la durée de séjour (30 s à 2 min, 75 s en moyenne), puis se recale sur les
+  entrées observées. À ce rythme, la salle se renouvelle très vite : en pratique,
+  c'est le contrôle à l'entrée et le trajet des convoqués qui limitent le débit.
 - **L'ordonnanceur ne décide pas qui entre dans la salle.** Il décide seulement
   qui quitte le parc pour aller faire la queue. C'est l'agent, au second scan,
   qui fait entrer. La régulation par la capacité de la salle est donc physique :
@@ -327,7 +329,8 @@ Les principales :
 |---|---|---|
 | `capaciteSalle` | `50` | places dans la Salle du Temps |
 | `capaciteFileReelle` | `30` | places dans la file devant l'attraction |
-| `dureeSejourMoyenneMin` | `20` | hypothèse de durée de séjour, base du débit |
+| `dureeSejourMinSec` | `30` | durée de séjour la plus courte (s) |
+| `dureeSejourMaxSec` | `120` | durée de séjour la plus longue (s) ; la moyenne des deux est la base du débit |
 | `delaiConvocationSec` | `600` | temps laissé pour **rejoindre la file réelle** |
 | `delaiGraceSec` | `120` | tolérance avant expiration |
 | `fenetreQuotaConvocations` | `50` | fenêtre glissante sur laquelle s'appliquent les quotas |
@@ -359,8 +362,8 @@ interne — les entrées scannées, moins celles dont la durée de séjour suppo
 Ces écarts au cahier des charges sont des choix, pas des oublis.
 
 - **E-mails simulés.** Aucun SMTP. Les messages s'affichent dans la console et
-  dans l'application (tableau de bord → boîte d'envoi, ou onglet « Mes données »
-  côté visiteur). Cela supprime le risque de délivrabilité du chapitre 8 et rend
+  via l'API (`GET /api/me/messages` pour le visiteur, `GET /api/admin/mailbox`
+  pour la boîte d'envoi complète). Cela supprime le risque de délivrabilité du chapitre 8 et rend
   la démonstration lisible. Brancher un service réel ne change que `mailer.js`.
 - **Journal fichier au lieu de PostgreSQL.** L'exigence réelle est la durabilité
   de l'ordre, pas la richesse des requêtes. Le passage à PostgreSQL ne toucherait

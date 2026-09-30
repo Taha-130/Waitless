@@ -336,18 +336,18 @@ export function placesFileReelle(state) {
 /* ------------------------------------------------------------------------ */
 
 /**
- * Duree de sejour supposee d'un visiteur, en minutes.
+ * Duree de sejour supposee d'un visiteur, en secondes.
  *
  * Les visiteurs sortent quand ils veulent : le systeme ne le sait pas, seul le
  * capteur le voit. Cette fonction ne sert donc QUE de repli quand aucun capteur
  * n'est branche, pour que la demonstration reste vivante (la salle se vide
- * toute seule). On disperse les durees autour de la moyenne de facon
- * deterministe — derivee de l'identifiant du ticket — afin que le rejeu du
- * journal redonne exactement le meme etat (RG-13).
+ * toute seule). On repartit les durees sur la plage min-max (30 s a 2 min) de
+ * facon deterministe — derivee de l'identifiant du ticket — afin que le rejeu
+ * du journal redonne exactement le meme etat (RG-13).
  */
-export function dureeSejourSupposeeMin(state, ticket) {
-  const moyenne = state.regles.dureeSejourMoyenneMin;
-  return moyenne * (0.6 + 0.8 * fractionStable(ticket.id));
+export function dureeSejourSupposeeSec(state, ticket) {
+  const { dureeSejourMinSec: min, dureeSejourMaxSec: max } = state.regles;
+  return min + (max - min) * fractionStable(ticket.id);
 }
 
 function fractionStable(texte) {
@@ -365,7 +365,7 @@ function fractionStable(texte) {
 export function occupationSalleEstimee(state, maintenantMs) {
   return Object.values(state.tickets).filter(
     (t) => t.etat === ETATS_TICKET.ENTRE
-      && tempsActifEcoule(state, t.entreA, maintenantMs) < dureeSejourSupposeeMin(state, t) * 60_000,
+      && tempsActifEcoule(state, t.entreA, maintenantMs) < dureeSejourSupposeeSec(state, t) * 1000,
   ).length;
 }
 

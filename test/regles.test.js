@@ -192,7 +192,7 @@ test('RG-04 : l\'heure limite tient compte de la file reelle, pas seulement de l
 /* ======================================================================== */
 
 test('RG-05 : les inscrits menaces par la fermeture sont avertis une seule fois', async () => {
-  journeeNeuve({ capaciteSalle: 2, capaciteFileReelle: 1, dureeSejourMoyenneMin: 60 });
+  journeeNeuve({ capaciteSalle: 2, capaciteFileReelle: 1, dureeSejourMinSec: 3600, dureeSejourMaxSec: 3600 });
   const tickets = inscrire(20);
   reglerHorloge({ heure: '18:00', vitesse: 0 });
 
@@ -241,7 +241,7 @@ test('RG-07 : les inscriptions Saiyan ferment si la garantie de 30 min est inten
   // Un Saiyan double les Humains de la file virtuelle : ce n'est donc jamais
   // elle qui met sa garantie en peril, mais la file REELLE, qu'il ne double
   // pas, et une salle qui se libere trop lentement.
-  journeeNeuve({ capaciteSalle: 1, capaciteFileReelle: 30, dureeSejourMoyenneMin: 60 });
+  journeeNeuve({ capaciteSalle: 1, capaciteFileReelle: 30, dureeSejourMinSec: 3600, dureeSejourMaxSec: 3600 });
   inscrire(30, 'HUMAIN');
   ordonnancer(etat());   // les 30 partent occuper la file reelle
 
@@ -471,6 +471,9 @@ test('RG-15 : une regle valide s\'applique a chaud, une regle hors bornes est re
 
   // Coherence : une file reelle plus grande que la salle n'a pas de sens.
   assert.equal(validerRegles({ capaciteFileReelle: 400, capaciteSalle: 50 }).ok, false);
+  // Coherence : la duree minimale de sejour ne peut pas depasser la maximale.
+  assert.equal(validerRegles({ dureeSejourMinSec: 150, dureeSejourMaxSec: 120 }).ok, false);
+  assert.equal(validerRegles({ dureeSejourMinSec: 30, dureeSejourMaxSec: 120 }).ok, true);
   assert.equal(etat().audit.some((a) => a.action === 'REGLES_MODIFIEES'), true,
     'la modification est tracee dans l\'audit');
 });
@@ -613,7 +616,7 @@ test('RG-18 : un code presente avant la convocation est refusé', () => {
 /* ======================================================================== */
 
 test('Capteur : sans URL, l\'occupation se deduit des entrees et de la duree de sejour', async () => {
-  journeeNeuve({ dureeSejourMoyenneMin: 20 });
+  journeeNeuve({ dureeSejourMinSec: 30, dureeSejourMaxSec: 120 });
   const tickets = inscrire(4);
   ordonnancer(etat());
   for (const t of tickets) faireEntrer(t);
@@ -622,7 +625,7 @@ test('Capteur : sans URL, l\'occupation se deduit des entrees et de la duree de 
   assert.equal(dernierReleve().source, 'interne');
   assert.equal(dernierReleve().occupation, 4, 'les quatre sont encore dans la salle');
 
-  avancer(60);   // bien au-dela de la duree de sejour maximale (20 x 1,4 = 28 min)
+  avancer(3);    // au-dela de la duree de sejour maximale (2 min)
   await battement();
   assert.equal(dernierReleve().occupation, 0, 'la salle s\'est videe d\'elle-meme');
 });
