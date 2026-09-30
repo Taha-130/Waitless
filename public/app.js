@@ -253,7 +253,7 @@ function ecranVisiteur() {
   // Etape 2 : pas de ticket -> page attraction. Sinon suivi du ticket.
   if (!ticket) return ecranAttraction(visiteur);
   if (ticket.etat === 'EN_ATTENTE') return ecranMonTicket(ticket);
-  return ecranFinParcours(ticket);
+  return ecranFinParcours(ticket, visiteur);
 }
 
 function ecranConsentement(visiteur) {
@@ -372,7 +372,38 @@ function ecranConvocation(ticket) {
     </div></div>`;
 }
 
-function ecranFinParcours(ticket) {
+/**
+ * Etage 2 : le visiteur est arrive, il patiente devant l'attraction. Plus aucun
+ * compte a rebours : il est la, il ne peut plus etre declare absent. Le seul
+ * chiffre qui compte devient le nombre de personnes devant lui.
+ */
+function ecranFileReelle(ticket) {
+  const salle = ticket.salle;
+  return `<div class="convocation"><div class="contenu">
+      <h1>Vous êtes dans la file</h1>
+      <p class="discret">Arrivée enregistrée à ${ticket.heureArrivee}. Gardez votre code
+      affiché : l'agent le scannera une seconde fois pour vous faire entrer.</p>
+      <div class="chiffre">${ticket.devantFileReelle}<span class="unite"> personne(s) devant vous</span></div>
+      <p class="discret">Entrée estimée vers ${ticket.heurePrevisionnelle}
+        (${ticket.estimation.basse}–${ticket.estimation.haute} min).</p>
+      ${salle.pleine
+        ? `<div class="message info">La salle est pleine (${salle.occupation}/${salle.capacite}).
+           Les entrées reprennent dès que des visiteurs en sortent.</div>`
+        : `<div class="message succes">${salle.capacite - salle.occupation} place(s) libre(s) dans la salle.</div>`}
+      ${ticket.geleParPause ? '<div class="message info">Attraction en pause. Votre place est conservée.</div>' : ''}
+      <div class="bloc"><div id="qr"></div>
+        <p class="code-secours" id="code-secours">Préparation du code…</p>
+        <p class="discret">Code renouvelé toutes les 30 secondes.</p>
+      </div>
+      <button class="sobre" data-action="desister">Quitter la file</button>
+    </div></div>`;
+}
+
+function ecranFinParcours(ticket, visiteur) {
+  if (S.onglet === 'profil') {
+    return `${barreOnglets([['resume', 'Résumé'], ['profil', 'Mes données']])}${blocProfil(visiteur)}`;
+  }
+
   const textes = {
     VALIDE: ['Code validé', "Suivez la file : un agent vous fera entrer dans la Salle du Temps dès qu'une place se libère. Profitez de la salle aussi longtemps que vous le souhaitez, puis reprenez votre visite du parc."],
     EXPIRE: ['Convocation expirée', "Vous n'avez pas rejoint la file de l'attraction à temps. Vous pouvez vous réinscrire en fin de file."],
