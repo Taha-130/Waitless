@@ -427,7 +427,7 @@ function blocProfil(visiteur) {
     <div class="bloc">
       <h3>Mes notifications</h3>
       <button class="sobre" data-action="messages">Actualiser</button>
-      ${messages.length ? messages.map((m) => `<p><strong>${echapper(m.sujet)}</strong><br><small>${echapper(m.corps)}</small></p>`).join('')
+      ${messages.length ? messages.map((m) => `<p><strong>${echapper(m.sujet)}</strong><br><small class="message-corps">${echapper(m.corps)}</small></p>`).join('')
         : '<p class="vide-liste">Aucun message pour le moment.</p>'}
     </div>`;
 }
