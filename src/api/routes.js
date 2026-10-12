@@ -29,6 +29,7 @@ import {
 import { envoyer, messages } from '../infra/mailer.js';
 import { dernierReleve, forcerOccupation, releverCapteur } from '../infra/sensor.js';
 import { semer } from '../infra/jeuDeDonnees.js';
+import { chargerBilletterie } from '../infra/billetterie.js';
 import { erreurHttp, ouvrirFlux } from './http.js';
 import {
   creerLienMagique, verifierLienMagique, creerSession,
@@ -54,7 +55,9 @@ export function enregistrerRoutes(app) {
   /* ==================================================================== */
 
   // F-01 : connexion par lien e-mail, sans mot de passe.
-  app.post('/api/auth/magic-link', ({ body }) => {
+  app.post('/api/auth/magic-link', async ({ body }) => {
+    // Premier essai : la base de la billetterie, par GET. Replis dans billetterie.js.
+    await chargerBilletterie(etat().regles.billetterieUrl);
     const visiteur = enregistrerVisiteur(body.email);
     const jeton = creerLienMagique(visiteur.email);
     const lien = `/?connexion=${encodeURIComponent(jeton)}`;

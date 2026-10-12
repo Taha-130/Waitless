@@ -25,16 +25,7 @@ const TYPES_MIME = {
   '.ico': 'image/x-icon',
 };
 
-export function creerApplication({
-  dossierStatique = 'public',
-  /*
-   * Option de personnalisation du serveur.
-   * On peut l'utiliser pour brancher HTTPS sans dupliquer toute la logique
-   * applicative : le moteur HTTP reste identique, on change seulement la
-   * couche de transport.
-   */
-  serveurFactory = (handler) => http.createServer(handler),
-} = {}) {
+export function creerApplication({ dossierStatique = 'public' } = {}) {
   const routes = [];
 
   /** Transforme "/tickets/:id" en expression reguliere + noms de parametres. */
@@ -57,11 +48,7 @@ export function creerApplication({
     delete: (c, h) => ajouter('DELETE', c, h),
   };
 
-  /*
-   * Le handler est identique entre HTTP et HTTPS : on ne change que le
-   * createServer(...) injecte par `serveurFactory`.
-   */
-  const serveur = serveurFactory(async (req, res) => {
+  const serveur = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const chemin = url.pathname;
 
@@ -94,16 +81,7 @@ export function creerApplication({
     return servirStatique(res, dossierStatique, chemin);
   });
 
-  return {
-    ...app,
-    serveur,
-    /*
-     * Hostage de liaison par defaut pour le test sur le reseau local et le mobile.
-     * On ecoute sur toutes les interfaces locales pour pouvoir atteindre la page
-     * depuis le telephone via l'IP du PC.
-     */
-    ecouter: (port, host = '0.0.0.0') => serveur.listen(port, host),
-  };
+  return { ...app, serveur, ecouter: (port) => serveur.listen(port) };
 }
 
 /** Reponse JSON. */
