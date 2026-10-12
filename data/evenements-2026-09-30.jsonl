@@ -429,3 +429,4 @@
 {"seq":18,"type":"TICKET_CREE","ts":1790760977977,"jour":"2026-09-30","ticketId":"tk_f496e64a","visiteurId":"vis_283e0753","statut":"SAIYAN","rang":4,"estimationMin":0}
 {"seq":19,"type":"TICKET_CONVOQUE","ts":1790760977980,"jour":"2026-09-30","ticketId":"tk_f496e64a"}
 {"seq":20,"type":"TICKET_ANNULE","ts":1790760984671,"jour":"2026-09-30","ticketId":"tk_f496e64a","motif":"Désistement du visiteur"}
+>>>>>>> fc4c16852746fd4a03b4961be8c3f8637b6380a3

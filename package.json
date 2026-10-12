@@ -1,0 +1,17 @@
+{
+  "name": "waitless",
+  "version": "1.0.0",
+  "description": "File d'attente virtuelle - La Salle du Temps",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "reset": "node seed.js --reset",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {},
+  "license": "MIT"
+}
