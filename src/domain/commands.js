@@ -39,6 +39,11 @@ export const TEXTES = {
   DECHARGE: { type: 'DECHARGE_PESANTEUR', version: '1.0' },
 };
 
+/** Occupation de la salle a cet instant, telle que le capteur la voit. */
+export function occupationSalle() {
+  return Math.max(0, dernierReleve().occupation ?? 0);
+}
+
 /* ======================================================================== */
 /* Identite et consentements                                                */
 /* ======================================================================== */
@@ -90,15 +95,66 @@ export function declarerAptitude(visiteurId, apte) {
   return etat().visiteurs[visiteurId];
 }
 
+/**
+ * Correction par l'administrateur des informations d'un visiteur : prenom,
+ * initiale, statut, aptitude. L'e-mail (identifiant de connexion) et la
+ * reference de billet ne se modifient pas ici.
+ *
+ * Le statut modifie vaut pour les prochaines inscriptions : un ticket deja
+ * cree garde le statut avec lequel il a ete pris.
+ */
+export function modifierVisiteur(visiteurId, champs = {}, acteur = 'admin') {
+  const v = exigerVisiteur(visiteurId);
+  const regles = etat().regles;
+  const modifications = {};
+
+  if (champs.prenom !== undefined) {
+    const prenom = String(champs.prenom).trim();
+    if (!prenom) throw new ErreurMetier('Le prénom ne peut pas être vide', 'CHAMP_INVALIDE');
+    modifications.prenom = prenom;
+  }
+  if (champs.initiale !== undefined) {
+    const initiale = String(champs.initiale).trim();
+    if (!initiale || initiale.length > 3) {
+      throw new ErreurMetier("L'initiale doit faire de 1 à 3 caractères", 'CHAMP_INVALIDE');
+    }
+    modifications.initiale = initiale;
+  }
+  if (champs.statut !== undefined) {
+    if (!regles.statuts[champs.statut]) throw new ErreurMetier('Statut inconnu', 'CHAMP_INVALIDE');
+    modifications.statut = champs.statut;
+  }
+  if (champs.apte !== undefined && champs.apte !== null) {
+    modifications.apte = !!champs.apte;
+  }
+
+  // On ne trace que ce qui change vraiment.
+  for (const [cle, valeur] of Object.entries(modifications)) {
+    if (v[cle] === valeur) delete modifications[cle];
+  }
+  if (!Object.keys(modifications).length) return v;
+
+  const details = `${visiteurId} : ${Object.entries(modifications)
+    .map(([cle, valeur]) => `${cle}=${valeur}`).join(', ')}`;
+  publier('VISITEUR_MODIFIE', { visiteurId, modifications, acteur, details });
+  return etat().visiteurs[visiteurId];
+}
+
 /* ======================================================================== */
 /* Ouverture des inscriptions (RG-01, RG-04, RG-07)                         */
 /* ======================================================================== */
 
 /**
  * Determine si les inscriptions sont ouvertes pour un statut donne.
+ *
+ * L'attente comparee aux horaires est l'attente TOTALE : file virtuelle plus
+ * traversee de la file reelle. Promettre un passage en oubliant les trente
+ * personnes deja debout devant l'attraction reviendrait a mentir d'un quart
+ * d'heure au moment ou cela compte le plus, en fin de journee.
+ *
  * @returns {{ouvert:boolean, motif:string|null, heureLimite:number|null, estimation:object}}
  */
-export function etatInscriptions(state, statut, occupation = dernierReleve().occupation) {
+export function etatInscriptions(state, statut, occupation = occupationSalle(state)) {
   const r = state.regles;
   const minutes = minutesDuJour();
   const estimation = estimer(state, statut, { occupationSalle: occupation });
@@ -192,11 +248,12 @@ export function seDesister(visiteurId) {
 /* Actions de l'agent (RG-11, RG-12)                                        */
 /* ======================================================================== */
 
+/** Retrait par un agent, d'un visiteur encore dans le parc ou en route. */
 export function retirerTicket(ticketId, motif, acteur) {
   exigerMotif(motif);
   const t = etat().tickets[ticketId];
   if (!t) throw new ErreurMetier('Ticket introuvable', 'TICKET_INTROUVABLE');
-  if (!['EN_ATTENTE', 'CONVOQUE'].includes(t.etat)) {
+  if (![ETATS_TICKET.EN_ATTENTE, ETATS_TICKET.CONVOQUE].includes(t.etat)) {
     throw new ErreurMetier('Ce ticket n\'est plus actif', 'TICKET_INACTIF');
   }
   publier('TICKET_RETIRE', { ticketId, motif, acteur });
@@ -209,6 +266,11 @@ export function retirerTicket(ticketId, motif, acteur) {
   return etat().tickets[ticketId];
 }
 
+/** Tous les visiteurs dont le ticket est encore actif : dans le parc ou en route. */
+function ticketsConcernes(state) {
+  return [...ticketsEnAttente(state), ...ticketsConvoques(state)];
+}
+
 /** RG-12 : la pause gele tous les compteurs et informe les visiteurs. */
 export function mettreEnPause(motif, acteur) {
   exigerMotif(motif);
@@ -216,7 +278,7 @@ export function mettreEnPause(motif, acteur) {
   if (s.file.etat === 'EN_PAUSE') throw new ErreurMetier('La file est déjà en pause', 'DEJA_EN_PAUSE');
   publier('FILE_PAUSEE', { motif, acteur });
 
-  for (const t of [...ticketsEnAttente(etat()), ...ticketsConvoques(etat())]) {
+  for (const t of ticketsConcernes(etat())) {
     const v = etat().visiteurs[t.visiteurId];
     if (v) {
       envoyer(v.email, 'Attraction momentanément interrompue',
@@ -232,7 +294,7 @@ export function reprendre(acteur) {
   if (s.file.etat !== 'EN_PAUSE') throw new ErreurMetier('La file n\'est pas en pause', 'PAS_EN_PAUSE');
   publier('FILE_REPRISE', { acteur });
 
-  for (const t of [...ticketsEnAttente(etat()), ...ticketsConvoques(etat())]) {
+  for (const t of ticketsConcernes(etat())) {
     const v = etat().visiteurs[t.visiteurId];
     if (v) {
       envoyer(v.email, 'Reprise de l\'attraction',
@@ -247,7 +309,7 @@ export function reprendre(acteur) {
 export function purger(motif, acteur) {
   exigerMotif(motif);
   const s = etat();
-  const concernes = [...ticketsEnAttente(s), ...ticketsConvoques(s)];
+  const concernes = ticketsConcernes(s);
   publier('FILE_PURGEE', { motif, acteur, nombreTickets: concernes.length });
   for (const t of concernes) {
     publier('TICKET_PURGE', { ticketId: t.id, motif, acteur: 'systeme' });
@@ -281,25 +343,36 @@ export function cloreIncident(incidentId, acteur) {
 }
 
 /* ======================================================================== */
-/* Scan et entree (F-08, F-11, RG-09)                                       */
+/* Le scan (F-08, F-11, RG-09)                                              */
 /* ======================================================================== */
 
 /**
  * Verdict de scan. Toujours un verdict explicite et un motif en cas de refus :
  * l'agent doit pouvoir expliquer le refus au visiteur en une phrase.
+ *
+ * Il n'y a qu'un scan, a l'entree de la file reelle. L'agent verifie le QR
+ * code, et c'est tout : un code valide consomme le ticket. L'entree dans la
+ * salle est geree ensuite par un second agent, sans application et sans
+ * nouvelle verification — c'est lui qui regarde le capteur et laisse entrer.
+ *
+ * @param {string} jeton
+ * @param {string} acteur  agent | admin
  */
 export function scanner(jeton, acteur) {
   const s = etat();
   const now = maintenant();
   const scanId = nouvelId('scan');
 
-  const refus = (motif, ticketId = null) => {
+  const refus = (motif, ticketId = null, extra = {}) => {
     publier('SCAN_ENREGISTRE', { scanId, ticketId, verdict: 'REFUSE', motif, acteur });
-    return { verdict: 'REFUSE', motif, ticketId };
+    return { verdict: 'REFUSE', motif, ticketId, ...extra };
   };
 
   if (s.file.etat === 'EN_PAUSE') {
     return refus(`Attraction en pause : ${s.file.motifPause}`);
+  }
+  if (s.file.etat === 'PURGEE') {
+    return refus('Attraction fermée pour la journée');
   }
 
   const verif = verifierJeton(jeton, s.regles.validiteJetonQrSec);
@@ -308,9 +381,12 @@ export function scanner(jeton, acteur) {
   const t = s.tickets[verif.ticketId];
   if (!t) return refus('Ticket inconnu', verif.ticketId);
 
-  // Usage unique : un ticket deja entre ne peut plus servir.
-  if (t.etat === ETATS_TICKET.ENTRE) return refus('Ticket déjà utilisé', t.id);
-  if (t.etat === ETATS_TICKET.EN_ATTENTE) return refus('Visiteur pas encore convoqué', t.id);
+  const v = s.visiteurs[t.visiteurId];
+  const identite = v ? { prenom: v.prenom, initiale: v.initiale, statut: v.statut } : null;
+
+  // --- Etats qui ne donnent droit a rien ---------------------------------
+  if (t.etat === ETATS_TICKET.VALIDE) return refus('Code déjà utilisé', t.id, { visiteur: identite });
+  if (t.etat === ETATS_TICKET.EN_ATTENTE) return refus('Visiteur pas encore convoqué', t.id, { visiteur: identite });
   if (t.etat !== ETATS_TICKET.CONVOQUE) {
     return refus({
       ANNULE: 'Ticket annulé par le visiteur',
@@ -320,28 +396,31 @@ export function scanner(jeton, acteur) {
     }[t.etat] ?? 'Ticket inactif', t.id);
   }
 
-  // RG-09 : 10 minutes, puis un delai de grace. Les pauses ne comptent pas.
+  // RG-09 : 10 minutes pour venir, puis un delai de grace. Les pauses ne
+  // comptent pas.
   const ecouleSec = tempsActifEcoule(s, t.convoqueA, now) / 1000;
   const limite = s.regles.delaiConvocationSec;
   const limiteAvecGrace = limite + s.regles.delaiGraceSec;
 
   if (ecouleSec > limiteAvecGrace) {
     publier('TICKET_EXPIRE', { ticketId: t.id, motif: 'Délai de convocation dépassé' });
-    return refus('Délai dépassé — le visiteur peut se réinscrire en fin de file', t.id);
+    return refus('Délai dépassé — le visiteur peut se réinscrire en fin de file', t.id, { visiteur: identite });
   }
 
+  // Rien a verifier sur la capacite de la file reelle : la place a ete
+  // reservee des la convocation (RG-16, applique dans l'ordonnanceur).
   const pendantGrace = ecouleSec > limite;
-  publier('SCAN_ENREGISTRE', { scanId, ticketId: t.id, verdict: 'ACCEPTE', acteur, motif: pendantGrace ? 'Accepté pendant le délai de grâce' : null });
-  publier('TICKET_ENTRE', { ticketId: t.id, cycle: t.cycle, pendantGrace, acteur });
+  const motif = pendantGrace ? 'Accepté pendant le délai de grâce' : null;
+  publier('SCAN_ENREGISTRE', { scanId, ticketId: t.id, verdict: 'ACCEPTE', acteur, motif });
+  publier('TICKET_VALIDE', { ticketId: t.id, pendantGrace, acteur });
 
-  const v = s.visiteurs[t.visiteurId];
   return {
     verdict: 'ACCEPTE',
-    pendantGrace,
     ticketId: t.id,
     // Affiche a l'agent pour le controle visuel de la piece d'identite.
-    visiteur: v ? { prenom: v.prenom, initiale: v.initiale, statut: v.statut } : null,
-    motif: pendantGrace ? 'Accepté pendant le délai de grâce' : null,
+    visiteur: identite,
+    pendantGrace,
+    motif,
   };
 }
 

@@ -14,10 +14,12 @@
 
 import { ecrireRegistre } from './billetterie.js';
 import {
-  enregistrerVisiteur, donnerConsentements, declarerAptitude, rejoindreFile,
+  enregistrerVisiteur, donnerConsentements, declarerAptitude, rejoindreFile, scanner,
 } from '../domain/commands.js';
 import { ordonnancer } from '../domain/scheduler.js';
 import { etat } from '../domain/eventStore.js';
+import { genererJeton } from '../domain/qr.js';
+import { ticketsConvoques } from '../domain/state.js';
 
 const PRENOMS = [
   'Lea', 'Karim', 'Sofia', 'Noah', 'Ines', 'Malo', 'Jade', 'Elias', 'Rose', 'Adam',
@@ -34,10 +36,14 @@ function statutPour(i) {
 }
 
 /**
- * Cree `nombre` visiteurs et les inscrit dans la file.
- * @returns {{inscrits:number, refuses:Array<{email:string, motif:string}>}}
+ * Cree `nombre` visiteurs et les inscrit dans la file virtuelle, puis, si on le
+ * demande, fait scanner une partie des convoques a l'entree de la file reelle.
+ *
+ * @param {number} nombre
+ * @param {{scannes?:number}} options
+ * @returns {{inscrits:number, scannes:number, refuses:Array}}
  */
-export function semer(nombre = 24) {
+export function semer(nombre = 24, { scannes = 0 } = {}) {
   // 1. La billetterie du parc « connait » ces visiteurs et leur statut.
   const registre = {};
   for (let i = 0; i < nombre; i++) {
@@ -73,5 +79,19 @@ export function semer(nombre = 24) {
   }
 
   ordonnancer(etat());
-  return { inscrits, refuses };
+
+  // 3. Une partie des convoques se presente a l'entree de la file reelle et
+  //    se fait scanner. On passe par le vrai chemin de scan, jeton compris :
+  //    rien n'est force dans le journal.
+  let scannesReels = 0;
+  for (let i = 0; i < scannes; i++) {
+    const t = ticketsConvoques(etat())[0];
+    if (!t) break;
+    const { jeton } = genererJeton(t.id, etat().regles.validiteJetonQrSec);
+    if (scanner(jeton, 'agent').verdict === 'REFUSE') break;
+    scannesReels++;
+  }
+
+  ordonnancer(etat());
+  return { inscrits, scannes: scannesReels, refuses };
 }
