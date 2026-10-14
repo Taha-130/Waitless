@@ -697,11 +697,7 @@ function blocApercu() {
   return `<div class="indicateurs">
       ${ind(m.totaux.enAttente, 'dans la file')}
       ${ind(m.totaux.valides, 'codes validés')}
-      ${ind(`≈ ${m.totaux.enFileReelle}`, 'devant l\'attraction (estimé)')}
-      ${ind(`${m.remplissage.sallePct} %`, 'remplissage salle')}
       ${ind(`${m.remplissage.fileReellePct} %`, 'remplissage file réelle (estimé)')}
-      ${ind(`${m.garantieSaiyanPct} %`, 'garantie Saiyan tenue')}
-      ${ind(`${m.ecartAnnonceReelPct} %`, 'écart annoncé / réel')}
       ${ind(`${m.absences.tauxPct} %`, 'absences à la convocation')}
       ${ind(m.finDeJournee.ticketsNonServis, 'non servis à la fermeture')}
       ${ind(`${m.finDeJournee.tauxDesistementPct} %`, 'désistements')}

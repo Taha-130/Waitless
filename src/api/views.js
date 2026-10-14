@@ -262,12 +262,6 @@ export function vueMetriques(state) {
     })
     .filter((x) => x !== null);
 
-  // RG-07 : la garantie Saiyan porte sur le delai jusqu'a la CONVOCATION.
-  const saiyansConvoques = tickets.filter((t) => t.statut === 'SAIYAN' && t.convoqueA !== null);
-  const garantieTenue = saiyansConvoques.filter(
-    (t) => tempsActifEcoule(state, t.creeA, t.convoqueA) / 60_000 <= (r.statuts.SAIYAN.garantieMin ?? Infinity),
-  ).length;
-
   // Remplissage de la salle depuis l'ouverture : entrees rapportees aux places
   // theoriquement offertes (capacite x rotations depuis le debut d'exploitation).
   const minutesExploitees = Math.max(1, minutesDuJour() - r.debutExploitation);
@@ -292,7 +286,6 @@ export function vueMetriques(state) {
   return {
     remplissage: {
       attractionPct: arrondi((valides.length / placesOffertes) * 100),
-      sallePct: arrondi((occupation / r.capaciteSalle) * 100),
       occupationSalle: occupation,
       capaciteSalle: r.capaciteSalle,
       fileReellePct: arrondi((occupationFileReelle(state) / r.capaciteFileReelle) * 100),
@@ -305,8 +298,6 @@ export function vueMetriques(state) {
       enRoute: ticketsConvoques(state).length,
       places: placesFileReelle(state),
     },
-    garantieSaiyanPct: saiyansConvoques.length
-      ? arrondi((garantieTenue / saiyansConvoques.length) * 100) : 100,
     ecartAnnonceReelPct: ecarts.length ? arrondi(moyenne(ecarts) * 100) : 0,
     absences: {
       tauxPct: valides.length + expires.length
@@ -326,7 +317,6 @@ export function vueMetriques(state) {
       expires: expires.length,
       annules: annules.length,
       enAttente: ticketsEnAttente(state).length,
-      enFileReelle: ticketsFileReelle(state).length,
       convoques: ticketsConvoques(state).length,
     },
   };
