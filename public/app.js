@@ -169,6 +169,8 @@ function ouvrirFlux() {
   source.onerror = () => rendreBandeau();
 }
 
+let dernierTicketEtat = null;
+
 async function rafraichirDiscret(saisieEnCours) {
   try {
     if (S.role === 'visiteur') S.moi = await api('GET', '/api/me');
@@ -182,10 +184,26 @@ async function rafraichirDiscret(saisieEnCours) {
     }
     S.recuA = Date.now();
   } catch { /* le bandeau signalera la coupure */ }
+
   // L'onglet Utilisateur n'est pas redessine a chaque battement : cela
   // effacerait une modification en cours avant qu'elle soit enregistree.
   const edition = S.role === 'admin' && S.onglet === 'utilisateurs';
-  if (saisieEnCours || edition || S.modal) rendreBandeau(); else rendre();
+
+  // Sur l'ecran de convocation, tant que l'etat du ticket ne change pas,
+  // seul le QR (et l'horloge du bandeau) doivent bouger : on evite de
+  // reconstruire toute la page a chaque battement du serveur.
+  const ticketEtat = S.moi?.ticket?.etat ?? null;
+  const resteSurConvocation = S.role === 'visiteur' && ticketEtat === 'CONVOQUE' && dernierTicketEtat === 'CONVOQUE';
+  dernierTicketEtat = ticketEtat;
+
+  if (saisieEnCours || edition || S.modal) {
+    rendreBandeau();
+  } else if (resteSurConvocation) {
+    rendreBandeau();
+    dessinerQr();
+  } else {
+    rendre();
+  }
 }
 
 /* ------------------------------------------------------------ Rendu ----- */
@@ -194,6 +212,12 @@ function rendre() {
   rendreBandeau();
 
   const app = $('#app');
+  // Remplacer innerHTML fait perdre la position de defilement (le navigateur
+  // remonte en haut de page). On la restaure apres le prochain repaint
+  // (requestAnimationFrame), sinon le scrollTo peut s'executer avant que la
+  // nouvelle mise en page soit stabilisee et n'a alors aucun effet.
+  const scrollY = window.scrollY || document.documentElement.scrollTop;
+
   app.className = S.role === 'agent' || S.role === 'admin' ? 'large' : '';
 
   let html = S.message
@@ -208,9 +232,13 @@ function rendre() {
   if (S.modal) html += blocModal();
 
   app.innerHTML = html;
-  
+
   brancherActions(app);
   dessinerQr();
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  });
 }
 
 function rendreBandeau() {
@@ -883,9 +911,13 @@ async function dessinerQr() {
       const r = await api('GET', `/api/tickets/${S.moi.ticket.id}/qr`);
       cacheJeton = { jeton: r.jeton, expireA: Date.now() + Math.max(1, r.expireDans - 1) * 1000 };
     }
+    // On ne touche au canvas que si le jeton a reellement change : sinon le
+    // QR se redessine (donc clignote) a chaque appel, meme quand rien n'a bouge.
+    if (boite.dataset.jeton === cacheJeton.jeton) return;
     boite.innerHTML = '';
     if (window.QRCode) new window.QRCode(boite, { text: cacheJeton.jeton, width: 220, height: 220 });
     else boite.textContent = 'Code a saisir manuellement par l\'agent :';
+    boite.dataset.jeton = cacheJeton.jeton;
     const secours = document.getElementById('code-secours');
     if (secours) secours.textContent = cacheJeton.jeton;
   } catch { /* le ticket n'est plus convoque : le prochain rendu corrigera */ }
@@ -1129,6 +1161,16 @@ rafraichir();
 
 // Compte a rebours : seul rafraichissement a la seconde, et uniquement quand un
 // ticket est convoque. Le reste de l'interface suit le rythme du serveur.
+
+function mettreAJourCompteARebours() {
+  const ticket = S.moi?.ticket;
+  const boite = document.querySelector('.convocation .chiffre');
+  if (!ticket || ticket.etat !== 'CONVOQUE' || !boite) return;
+  const restant = compteARebours(ticket);
+  boite.classList.toggle('urgence', restant.sec <= 120);
+  if (boite.firstChild) boite.firstChild.textContent = restant.texte;
+}
+
 setInterval(() => {
-  if (S.role === 'visiteur' && S.moi?.ticket?.etat === 'CONVOQUE' && !S.modal) rendre();
+  if (S.role === 'visiteur' && S.moi?.ticket?.etat === 'CONVOQUE' && !S.modal) mettreAJourCompteARebours();
 }, 1000);
