@@ -194,6 +194,12 @@ function rendre() {
   rendreBandeau();
 
   const app = $('#app');
+  // Les ecrans plein ecran (.convocation) defilent en interne : un nouveau
+  // bloc repartirait sinon toujours en haut, ce qui coupe court a tout
+  // defilement de l'utilisateur a chaque rendu (toutes les secondes pendant
+  // le compte a rebours).
+  const scrollAvant = app.querySelector('.convocation')?.scrollTop ?? 0;
+
   app.className = S.role === 'agent' || S.role === 'admin' ? 'large' : '';
 
   let html = S.message
@@ -208,7 +214,10 @@ function rendre() {
   if (S.modal) html += blocModal();
 
   app.innerHTML = html;
-  
+
+  const convocation = app.querySelector('.convocation');
+  if (convocation) convocation.scrollTop = scrollAvant;
+
   brancherActions(app);
   dessinerQr();
 }
