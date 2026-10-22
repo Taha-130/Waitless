@@ -1,0 +1,7 @@
+{
+  "lea@exemple.fr": { "prenom": "Lea", "statut": "SAIYAN", "refBillet": "BIL-1001" },
+  "karim@exemple.fr": { "prenom": "Karim", "statut": "SUPER_SAIYAN", "refBillet": "BIL-1002" },
+  "sofia@exemple.fr": { "prenom": "Sofia", "statut": "HUMAIN", "refBillet": "BIL-1003" },
+  "noah@exemple.fr": { "prenom": "Noah", "statut": "HUMAIN", "refBillet": "BIL-1004" },
+  "ines@exemple.fr": { "prenom": "Ines", "statut": "SAIYAN", "refBillet": "BIL-1005" }
+}

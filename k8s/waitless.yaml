@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: waitless
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: waitless
+  template:
+    metadata:
+      labels:
+        app: waitless
+    spec:
+      containers:
+        - name: waitless
+          image: waitless:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+          env:
+            - name: WAITLESS_CAPTEUR_URL
+              value: "http://capteur:4002"
+            - name: WAITLESS_BILLETTERIE_URL
+              value: "http://billetterie:4001"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: waitless
+spec:
+  type: LoadBalancer
+  selector:
+    app: waitless
+  ports:
+    - port: 3000
+      targetPort: 3000

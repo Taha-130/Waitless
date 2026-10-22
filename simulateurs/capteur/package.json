@@ -1,0 +1,11 @@
+{
+  "name": "capteur-simule",
+  "version": "1.0.0",
+  "description": "Service simule du capteur de la Salle du Temps pour Waitless",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {},
+  "license": "MIT"
+}

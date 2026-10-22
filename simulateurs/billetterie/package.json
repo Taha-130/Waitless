@@ -1,0 +1,11 @@
+{
+  "name": "billetterie-simulee",
+  "version": "1.0.0",
+  "description": "Service simule de billetterie externe pour Waitless",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {},
+  "license": "MIT"
+}

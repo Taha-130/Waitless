@@ -1,0 +1,21 @@
+services:
+  waitless:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      WAITLESS_CAPTEUR_URL: http://capteur:4002
+      WAITLESS_BILLETTERIE_URL: http://billetterie:4001
+    depends_on:
+      - capteur
+      - billetterie
+
+  billetterie:
+    build: ./simulateurs/billetterie
+    ports:
+      - "4001:4001"
+
+  capteur:
+    build: ./simulateurs/capteur
+    ports:
+      - "4002:4002"

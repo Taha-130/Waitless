@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billetterie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: billetterie
+  template:
+    metadata:
+      labels:
+        app: billetterie
+    spec:
+      containers:
+        - name: billetterie
+          image: waitless-billetterie:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4001
+          env:
+            - name: PORT
+              value: "4001"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billetterie
+spec:
+  selector:
+    app: billetterie
+  ports:
+    - port: 4001
+      targetPort: 4001

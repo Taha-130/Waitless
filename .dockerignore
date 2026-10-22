@@ -2,3 +2,6 @@
 data/
 *.md
 Waitless-Cahier-des-charges.docx
+simulateurs/
+k8s/
+.env
