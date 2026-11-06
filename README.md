@@ -68,8 +68,18 @@ Trois conséquences qui expliquent la forme du code :
 
 ## Démarrer
 
+Trois façons de lancer le projet, de la plus simple à la plus complète :
+
+| Méthode | Ce qui tourne | Prérequis | Voir |
+|---|---|---|---|
+| **Node seul** | Waitless, sans les simulateurs | Node.js 18+ | ci-dessous |
+| **Docker Compose** | Waitless + capteur + billetterie | Docker Desktop | [Conteneurisation](#conteneurisation-et-déploiement) |
+| **Kubernetes** | les trois mêmes, orchestrés | Docker Desktop + `kind` + `kubectl` | [Kubernetes](#3-kubernetes-avec-kind) |
+
+### Node seul
+
 Prérequis : **Node.js 18 ou plus**. Rien d'autre. Pas de `npm install`, pas de
-base de données à installer, pas de Docker : le projet n'a **aucune dépendance**.
+base de données à installer : le projet n'a **aucune dépendance**.
 
 ```bash
 node seed.js --heure=10:00 --scannes=12   # peuple la file et fait scanner 12 convoqués
@@ -169,7 +179,15 @@ waitless/
 │       ├── billetterie.js  référentiel des statuts (GET sur l'URL, sinon fichier local)
 │       └── jeuDeDonnees.js peuplement de démonstration
 ├── public/                 interface web (HTML + CSS + JS, sans framework)
-└── test/regles.test.js     39 tests, un par règle critique
+├── test/regles.test.js     39 tests, un par règle critique
+│
+├── Dockerfile              image de l'application
+├── docker-compose.yml      Waitless + les deux simulateurs, en une commande
+├── .env.example            variables d'environnement disponibles
+├── simulateurs/            ← services externes simulés, un conteneur chacun
+│   ├── capteur/            renvoie l'occupation de la salle : {"count": N}
+│   └── billetterie/        renvoie visiteurs.json : qui est Humain, Saiyan, Super Saiyan
+└── k8s/                    manifestes Kubernetes des trois services
 ```
 
 La dépendance va toujours dans le même sens : `api → domain → (rien)`, et
@@ -329,7 +347,7 @@ Les principales :
 | `dureeSejourMinSec` | `30` | durée de séjour la plus courte (s) |
 | `dureeSejourMaxSec` | `120` | durée de séjour la plus longue (s) ; la moyenne des deux est la base du débit |
 | `delaiConvocationSec` | `600` | temps laissé pour **rejoindre la file réelle** |
-| `delaiGraceSec` | `120` | tolérance avant expiration |
+| `delaiGraceSec` | `45` | tolérance avant expiration, bornée entre 30 et 60 s (RG-09) |
 | `fenetreQuotaConvocations` | `50` | fenêtre glissante sur laquelle s'appliquent les quotas |
 
 Les quotas par statut ne peuvent plus s'exprimer « par cycle », puisqu'il n'y a
@@ -337,7 +355,8 @@ plus de cycle. « 15 % maximum pour les Super Saiyans » signifie désormais : s
 les 50 dernières convocations, pas plus de 15 % de Super Saiyans. La contrainte
 est équivalente, et elle est continue.
 
-Variables d'environnement, toutes facultatives :
+Variables d'environnement, toutes facultatives (modèle commenté dans
+`.env.example`) :
 
 | Variable | Défaut | Rôle |
 |---|---|---|
@@ -407,19 +426,192 @@ Ces écarts au cahier des charges sont des choix, pas des oublis.
 - **Hors périmètre**, car non demandés dans le MVP : billetterie et paiement,
   multi-attractions, applications natives, gestion des groupes.
 
-## Et ensuite
+## Conteneurisation et déploiement
 
-Rien n'est couplé à l'environnement : pas de chemin absolu, pas de service
-externe obligatoire, le port et les secrets viennent de l'environnement. La
-containerisation tiendra en quelques lignes :
+### L'architecture à trois services
 
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY . .
-EXPOSE 3000
-CMD ["node", "server.js"]
+Waitless prévoit depuis le départ deux services externes, branchés par URL
+(`src/config/urls.js`) : le **capteur** de la Salle du Temps et la
+**billetterie** du parc. Ni l'un ni l'autre n'est réalisé par Waitless. Pour
+les démontrer réellement, le dossier `simulateurs/` contient deux petits
+serveurs qui jouent leur rôle, chacun dans son propre conteneur :
+
+```
+                        ┌──────────────────────────┐
+   navigateur  ───────▶ │  waitless       :3000    │
+   (visiteur,           │  l'application           │
+    agent, admin)       └────┬───────────────┬─────┘
+                             │ GET           │ GET
+                             ▼               ▼
+              ┌──────────────────┐   ┌──────────────────────┐
+              │ capteur   :4002  │   │ billetterie   :4001  │
+              │ {"count": N}     │   │ visiteurs.json       │
+              └──────────────────┘   └──────────────────────┘
+
+   data/  ◀── volume : le journal d'événements survit aux redémarrages
 ```
 
-Le seul point à traiter à ce moment-là est le dossier `data/`, qui doit devenir
-un volume pour que le journal survive au redémarrage du conteneur.
+| Service | Rôle | Ce qu'il répond |
+|---|---|---|
+| `waitless` | l'application complète | l'interface et l'API |
+| `capteur` | simule le capteur de présence de la salle | `{"count": N}`, N varie en continu entre 10 % et 90 % de la capacité (cycle de 10 min) |
+| `billetterie` | simule la base de billets du parc | le contenu de `simulateurs/billetterie/visiteurs.json` |
+
+Waitless trouve les deux autres **par leur nom** (`http://capteur:4002`,
+`http://billetterie:4001`), résolu par le réseau interne de Docker Compose ou
+de Kubernetes. Ces adresses ne fonctionnent **qu'entre conteneurs** : depuis
+votre navigateur ou votre terminal, utilisez `localhost:4001` et
+`localhost:4002`.
+
+Aucune base de données : `visiteurs.json` sert de base à la billetterie
+simulée, et Waitless garde son journal en fichiers. Les simulateurs n'ont,
+comme Waitless, aucune dépendance.
+
+**Visiteurs de démonstration** (statut fourni par la billetterie simulée) :
+
+| E-mail | Statut |
+|---|---|
+| `lea@exemple.fr` | Saiyan |
+| `karim@exemple.fr` | Super Saiyan |
+| `sofia@exemple.fr` | Humain |
+| `noah@exemple.fr` | Humain |
+| `ines@exemple.fr` | Saiyan |
+
+Tout autre e-mail passe par le repli habituel (statut déduit de l'e-mail).
+
+### 1. Docker seul
+
+Le `Dockerfile` à la racine construit l'image de l'application seule :
+
+```bash
+docker build -t waitless .
+docker run -d --name waitless -p 3000:3000 waitless
+```
+
+Sans les simulateurs, Waitless utilise ses replis internes. Le `.dockerignore`
+exclut de l'image `data/`, `.git`, la documentation, `simulateurs/` et `k8s/`.
+
+### 2. Docker Compose (recommandé pour la démonstration)
+
+```bash
+docker compose up -d --build     # construit et lance les trois conteneurs
+docker compose ps                # les trois doivent être « Up »
+docker compose logs -f waitless  # suivre les journaux
+docker compose down              # tout arrêter
+```
+
+Ouvrir **http://localhost:3000**. Au démarrage, la bannière de Waitless doit
+afficher :
+
+```
+  Capteur        http://capteur:4002
+  Billetterie    http://billetterie:4001 — 5 billet(s)
+```
+
+`data/` est monté en volume (`./data:/app/data`) : le journal survit à un
+`docker compose down` suivi d'un `up`, pas seulement à un redémarrage.
+
+### 3. Kubernetes avec kind
+
+Le bouton « Enable Kubernetes » de Docker Desktop ne fonctionne pas sur tous
+les postes. On utilise donc **kind** (*Kubernetes in Docker*) : il crée un vrai
+cluster dont les nœuds sont des conteneurs Docker, sans toucher aux réglages de
+Docker Desktop.
+
+**Installation (une seule fois)** :
+
+```bash
+brew install kind kubectl          # macOS
+# Windows : winget install Kubernetes.kind Kubernetes.kubectl
+kind create cluster --name waitless
+kubectl get nodes                  # attendre STATUS = Ready (~20 s)
+```
+
+**Déploiement** (depuis la racine du projet) :
+
+```bash
+# 1. construire les trois images, avec les noms attendus par k8s/
+docker build -t waitless:latest .
+docker build -t waitless-capteur:latest ./simulateurs/capteur
+docker build -t waitless-billetterie:latest ./simulateurs/billetterie
+
+# 2. les copier dans le cluster (kind ne voit pas les images locales de Docker)
+kind load docker-image waitless:latest waitless-capteur:latest waitless-billetterie:latest --name waitless
+
+# 3. déployer
+kubectl apply -f k8s/
+
+# 4. vérifier
+kubectl get pods       # trois pods « Running »
+kubectl get pvc        # waitless-data « Bound »
+
+# 5. ouvrir l'application (laisser cette commande tourner)
+kubectl port-forward service/waitless 3002:3000
+```
+
+Puis ouvrir **http://localhost:3002** (3002 pour ne pas entrer en conflit avec
+Docker Compose s'il tourne aussi sur 3000).
+
+**Après une modification du code**, reconstruire l'image concernée, la
+recharger avec `kind load docker-image …`, puis
+`kubectl rollout restart deployment/waitless`.
+
+**Ce que contiennent les manifestes** :
+
+- un `Deployment` et un `Service` par application ;
+- un `PersistentVolumeClaim` (`waitless-data`, 100 Mi) monté sur `/app/data`,
+  pour que le journal survive à la perte du pod ;
+- `imagePullPolicy: Never` : les images viennent du poste, pas d'un registre.
+  C'est pourquoi l'étape `kind load` est obligatoire.
+
+**Démontrer l'auto-réparation** :
+
+```bash
+kubectl delete pod -l app=waitless   # on « tue » l'application
+kubectl get pods                     # un nouveau pod démarre aussitôt
+```
+
+Relancer le `port-forward` (il s'arrête avec l'ancien pod), puis vérifier que
+la file est intacte : le volume a conservé le journal.
+
+**Commandes utiles** :
+
+```bash
+kubectl logs deployment/waitless          # journaux (ou deployment/capteur, /billetterie)
+kubectl describe pod -l app=waitless      # diagnostiquer un pod qui ne démarre pas
+kubectl delete -f k8s/                    # tout retirer du cluster
+kind delete cluster --name waitless       # supprimer le cluster
+```
+
+### `replicas: 1` est obligatoire
+
+Tout l'état de Waitless est en mémoire et dans `data/`, propre à chaque
+instance. Avec deux replicas, chacune aurait sa propre file : un visiteur
+inscrit sur l'une serait invisible pour l'autre (vérifié : 1 221 tickets d'un
+côté, 0 de l'autre). Passer à plusieurs instances demanderait d'abord un
+stockage partagé (Redis, PostgreSQL). Les simulateurs, eux, n'ont pas d'état et
+pourraient être répliqués.
+
+### Déploiement en ligne (Render)
+
+L'application est déployée sur **https://waitless-3ev8.onrender.com/**, à partir
+du `Dockerfile`, redéployée automatiquement à chaque push sur `main`.
+
+- Render ne lit pas `docker-compose.yml` : seule l'application tourne en
+  ligne, **sans les simulateurs**. Elle utilise donc ses replis internes.
+- Plan gratuit : le disque n'est pas persistant (la file repart de zéro à
+  chaque redéploiement) et le service s'endort après 15 min sans visite. La
+  première requête prend alors 30 à 60 s : ouvrir le lien quelques minutes
+  avant une démonstration.
+
+### Dépannage
+
+| Symptôme | Cause | Solution |
+|---|---|---|
+| `port is already allocated` / `address already in use` | un autre serveur occupe le port 3000 | arrêter l'autre (`docker compose down`, `Ctrl+C` sur `node server.js`) ou changer le port : `-p 3010:3000` |
+| `container name "/waitless" is already in use` | un ancien conteneur porte ce nom | `docker rm -f waitless` |
+| `http://capteur:4002` ne répond pas dans le navigateur | ces noms n'existent qu'entre conteneurs | utiliser `localhost:4002` |
+| la bannière affiche `Capteur (aucun : estimation interne)` | les URLs ne sont pas passées | lancer via `docker compose`, ou définir `WAITLESS_CAPTEUR_URL` |
+| `Cannot connect to the Docker daemon` | Docker Desktop n'est pas démarré | lancer Docker Desktop, attendre que `docker info` réponde |
+| pod en `ErrImageNeverPull` | image absente du cluster kind | refaire `kind load docker-image …` |
+| `kubectl` : `connection refused` sur `localhost:8080` | aucun cluster actif | `kind create cluster --name waitless` |
