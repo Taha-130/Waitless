@@ -6,6 +6,10 @@ services:
     environment:
       WAITLESS_CAPTEUR_URL: http://capteur:4002
       WAITLESS_BILLETTERIE_URL: http://billetterie:4001
+    volumes:
+      # RG-13 : le journal doit survivre a un redemarrage du conteneur, pas
+      # seulement a un arret/relance du processus a l'interieur.
+      - ./data:/app/data
     depends_on:
       - capteur
       - billetterie

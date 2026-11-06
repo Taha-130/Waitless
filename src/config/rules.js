@@ -58,8 +58,9 @@ export const REGLES_PAR_DEFAUT = {
 
   /** Temps laisse au visiteur pour REJOINDRE LA FILE REELLE apres l'appel. */
   delaiConvocationSec: 600,       // 10 min
-  /** Tolerance supplementaire avant expiration. */
-  delaiGraceSec: 120,             // 2 min
+  /** Tolerance supplementaire avant expiration. RG-09 : hypothese retenue au
+   *  cahier des charges, parametrable entre 30 et 60 s. */
+  delaiGraceSec: 45,
   /** Rappel envoye tant de secondes avant la fin du delai. */
   rappelAvantFinSec: 120,
   /** Duree de validite d'un jeton QR (rotation). */
@@ -146,7 +147,7 @@ const BORNES = {
   dureeSejourMinSec: [5, 14400, 'Durée minimale de séjour (s)'],
   dureeSejourMaxSec: [5, 14400, 'Durée maximale de séjour (s)'],
   delaiConvocationSec: [60, 3600, 'Délai de convocation (s)'],
-  delaiGraceSec: [0, 1800, 'Délai de grâce (s)'],
+  delaiGraceSec: [30, 60, 'Délai de grâce (s)'],
   rappelAvantFinSec: [0, 1800, 'Rappel avant expiration (s)'],
   validiteJetonQrSec: [10, 300, 'Validité du jeton QR (s)'],
   ouvertureFile: [0, 1439, 'Ouverture des inscriptions'],

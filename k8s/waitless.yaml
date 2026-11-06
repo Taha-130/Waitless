@@ -1,9 +1,26 @@
+# IMPORTANT : Waitless garde tout son etat dans des fichiers locaux
+# (data/*.jsonl), sans base de donnees partagee. `replicas` DOIT rester a 1 :
+# plusieurs copies auraient chacune leur propre etat, incoherent entre elles
+# (visiteur inscrit sur une copie, invisible des autres). Ne pas augmenter ce
+# nombre sans d'abord remplacer le stockage par quelque chose de partage
+# (ex. Redis, une base de donnees) entre toutes les copies.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: waitless-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: waitless
 spec:
-  replicas: 1
+  replicas: 1   # voir l'avertissement en tete de fichier : ne pas changer
   selector:
     matchLabels:
       app: waitless
@@ -23,6 +40,13 @@ spec:
               value: "http://capteur:4002"
             - name: WAITLESS_BILLETTERIE_URL
               value: "http://billetterie:4001"
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: waitless-data
 ---
 apiVersion: v1
 kind: Service
