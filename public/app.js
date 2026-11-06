@@ -217,6 +217,10 @@ function rendre() {
   // (requestAnimationFrame), sinon le scrollTo peut s'executer avant que la
   // nouvelle mise en page soit stabilisee et n'a alors aucun effet.
   const scrollY = window.scrollY || document.documentElement.scrollTop;
+  // Les ecrans plein ecran (.convocation) defilent dans leur propre boite
+  // (position: fixed + overflow: auto) : ils ne font pas bouger window.scrollY,
+  // donc ils ont besoin de leur propre restauration.
+  const scrollConvocation = app.querySelector('.convocation')?.scrollTop ?? 0;
 
   app.className = S.role === 'agent' || S.role === 'admin' ? 'large' : '';
 
@@ -237,7 +241,11 @@ function rendre() {
   dessinerQr();
 
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => window.scrollTo(0, scrollY));
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scrollY);
+      const convocation = app.querySelector('.convocation');
+      if (convocation) convocation.scrollTop = scrollConvocation;
+    });
   });
 }
 
